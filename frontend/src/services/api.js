@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-export const BACKEND_URL = 'http://pc-calculator-production.up.railway.app'
+export const BACKEND_URL = 'https://pc-calculator-production.up.railway.app'
 
 const api = axios.create({
   baseURL: `${BACKEND_URL}/api`,
