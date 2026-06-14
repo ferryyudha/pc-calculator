@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-export const BACKEND_URL = 'https://pc-calculator-production.up.railway.app'
+export const BACKEND_URL = 'http://192.168.100.23:8000'
 
 const api = axios.create({
   baseURL: `${BACKEND_URL}/api`,
@@ -18,23 +18,23 @@ api.interceptors.response.use(
 )
 
 export const getComponents = {
-  cpus:         (params) => api.get('/cpus', { params }),
-  gpus:         (params) => api.get('/gpus', { params }),
+  cpus: (params) => api.get('/cpus', { params }),
+  gpus: (params) => api.get('/gpus', { params }),
   motherboards: (params) => api.get('/motherboards', { params }),
-  rams:         (params) => api.get('/rams', { params }),
-  ssds:         (params) => api.get('/ssds', { params }),
-  hdds:         ()       => api.get('/hdds'),
-  psus:         (params) => api.get('/psus', { params }),
-  games:        ()       => api.get('/games'),
+  rams: (params) => api.get('/rams', { params }),
+  ssds: (params) => api.get('/ssds', { params }),
+  hdds: () => api.get('/hdds'),
+  psus: (params) => api.get('/psus', { params }),
+  games: () => api.get('/games'),
 }
 
 // Ambil jumlah data dinamis (CPU, GPU, game, benchmark) dari database untuk ditampilkan di halaman utama
 export const getStats = () => api.get('/stats')
 
 export const postCompatibility = (data) => api.post('/check-compatibility', data)
-export const postFpsEstimate   = (data) => api.post('/fps-estimate', data)
+export const postFpsEstimate = (data) => api.post('/fps-estimate', data)
 export const postFpsEstimateAll = (data) => api.post('/fps-estimate-all', data)
-export const postPsuCalculate  = (data) => api.post('/psu-calculate', data)
+export const postPsuCalculate = (data) => api.post('/psu-calculate', data)
 export const postRecommendBuild = (data) => api.post('/recommend-build', data)
 
 // Monitoring PC Endpoints
