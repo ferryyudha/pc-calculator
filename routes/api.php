@@ -34,5 +34,8 @@ Route::post('/fps-estimate-all',    [FpsController::class,           'estimateAl
 Route::post('/psu-calculate',       [PsuController::class,           'calculate']); // §4.6
 Route::post('/recommend-build',             [BuildController::class,         'recommend']); // §4.7
 Route::post('/recommend-build/ai-prompt',   [BuildController::class,         'recommendAiPrompt']);
-Route::post('/recommend-build/tier/{tier}', [BuildController::class,         'recommendTier']);
+Route::post('/recommend-build/tier/{tier}', [BuildController::class, 'recommendTier']);
+
+use App\Http\Controllers\Api\ChatController;
+Route::post('/chat', [ChatController::class, 'send']);
 

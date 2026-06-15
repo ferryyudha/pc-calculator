@@ -18,3 +18,9 @@ Route::post('/build-recommendation/tier/{tier}', [BuildRecommendationController:
 
 Route::post('/build-recommendation/manual', [BuildRecommendationController::class, 'recommendManual'])
     ->name('build.manual');
+
+use App\Http\Controllers\Api\ChatController;
+
+Route::post('/chat', [ChatController::class, 'send'])
+    ->middleware('throttle:20,1') // rate limit: 20 request per menit per IP
+    ->name('chat.send');
