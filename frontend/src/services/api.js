@@ -38,6 +38,8 @@ export const postFpsEstimate = (data) => api.post('/fps-estimate', data)
 export const postFpsEstimateAll = (data) => api.post('/fps-estimate-all', data)
 export const postPsuCalculate = (data) => api.post('/psu-calculate', data)
 export const postRecommendBuild = (data) => api.post('/recommend-build', data)
+export const postRecommendBuildAi = (data) => api.post('/recommend-build/ai-prompt', data)
+export const postRecommendBuildTier = (tier) => api.post(`/recommend-build/tier/${tier}`)
 
 // Monitoring PC Endpoints
 export const getDevices = () => api.get('/devices')

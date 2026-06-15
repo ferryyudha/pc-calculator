@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Ram extends Model
 {
     protected $fillable = [
-        'name', 'ddr_version', 'capacity', 'speed', 'sticks', 'price',
+        'name', 'ddr_version', 'capacity', 'speed', 'sticks', 'price', 'image_category',
     ];
 
     protected $casts = [

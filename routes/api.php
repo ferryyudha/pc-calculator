@@ -5,9 +5,6 @@ use App\Http\Controllers\Api\CompatibilityController;
 use App\Http\Controllers\Api\FpsController;
 use App\Http\Controllers\Api\PsuController;
 use App\Http\Controllers\Api\BuildController;
-use App\Http\Controllers\AgentController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Middleware\VerifyApiKey;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -35,23 +32,7 @@ Route::post('/check-compatibility', [CompatibilityController::class, 'check']); 
 Route::post('/fps-estimate',        [FpsController::class,           'estimate']); // §4.5
 Route::post('/fps-estimate-all',    [FpsController::class,           'estimateAll']);
 Route::post('/psu-calculate',       [PsuController::class,           'calculate']); // §4.6
-Route::post('/recommend-build',     [BuildController::class,         'recommend']); // §4.7
-
-// Agent Endpoints
-Route::post('/agent/register', [AgentController::class, 'register']);
-
-Route::middleware([VerifyApiKey::class])->group(function () {
-    Route::post('/agent/report', [AgentController::class, 'report']);
-    Route::post('/agent/ping', [AgentController::class, 'ping']);
-});
-
-// Dashboard / Web Client Endpoints
-Route::get('/download-agent', [DashboardController::class, 'downloadAgent']);
-Route::get('/devices', [DashboardController::class, 'getDevices']);
-Route::get('/devices/{id}', [DashboardController::class, 'getDeviceDetail']);
-Route::get('/devices/{id}/logs', [DashboardController::class, 'getDeviceLogs']);
-Route::get('/devices/{id}/power', [DashboardController::class, 'getPowerMetrics']);
-
-Route::get('/alerts', [DashboardController::class, 'getAlerts']);
-Route::patch('/alerts/{id}', [DashboardController::class, 'updateAlert']);
+Route::post('/recommend-build',             [BuildController::class,         'recommend']); // §4.7
+Route::post('/recommend-build/ai-prompt',   [BuildController::class,         'recommendAiPrompt']);
+Route::post('/recommend-build/tier/{tier}', [BuildController::class,         'recommendTier']);
 

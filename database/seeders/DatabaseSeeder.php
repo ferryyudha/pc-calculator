@@ -42,6 +42,7 @@ class DatabaseSeeder extends Seeder
             GameSeeder::class,
             // Benchmark data — harus setelah CPU, GPU, dan Game ada di database
             BenchmarkSeeder::class,
+            ComponentImageCategorySeeder::class,
         ]);
     }
 }

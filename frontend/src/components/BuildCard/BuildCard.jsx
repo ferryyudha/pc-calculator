@@ -10,12 +10,12 @@ export default function BuildCard({ data }) {
   const { build, total_price, remaining_budget, estimated_fps, fps_source } = data
 
   const components = [
-    { label: 'CPU',         icon: '🔲', item: build.cpu,         extra: `${build.cpu?.cores}C/${build.cpu?.threads}T · ${build.cpu?.tdp}W TDP` },
-    { label: 'GPU',         icon: '🎮', item: build.gpu,         extra: `${build.gpu?.vram}GB ${build.gpu?.memory_type}` },
-    { label: 'Motherboard', icon: '🔌', item: build.motherboard, extra: `${build.motherboard?.socket} · ${build.motherboard?.ram_type}` },
-    { label: 'RAM',         icon: '💾', item: build.ram,         extra: `${build.ram?.capacity}GB ${build.ram?.ddr_version} ${build.ram?.speed}MHz` },
-    { label: 'SSD',         icon: '💿', item: build.ssd,         extra: `${build.ssd?.capacity}GB · ${build.ssd?.type}` },
-    { label: 'PSU',         icon: '⚡', item: build.psu,         extra: `${build.psu?.watt}W · ${build.psu?.certification}` },
+    { label: 'CPU',         icon: build.cpu?.image_category ? `/images/components/${build.cpu.image_category}.svg` : '🔲', item: build.cpu,         extra: `${build.cpu?.cores}C/${build.cpu?.threads}T · ${build.cpu?.tdp}W TDP` },
+    { label: 'GPU',         icon: build.gpu?.image_category ? `/images/components/${build.gpu.image_category}.svg` : '🎮', item: build.gpu,         extra: `${build.gpu?.vram}GB ${build.gpu?.memory_type}` },
+    { label: 'Motherboard', icon: build.motherboard?.image_category ? `/images/components/${build.motherboard.image_category}.svg` : '🔌', item: build.motherboard, extra: `${build.motherboard?.socket} · ${build.motherboard?.ram_type}` },
+    { label: 'RAM',         icon: build.ram?.image_category ? `/images/components/${build.ram.image_category}.svg` : '💾', item: build.ram,         extra: `${build.ram?.capacity}GB ${build.ram?.ddr_version} ${build.ram?.speed}MHz` },
+    { label: 'SSD',         icon: build.ssd?.image_category ? `/images/components/${build.ssd.image_category}.svg` : '💿', item: build.ssd,         extra: `${build.ssd?.capacity}GB · ${build.ssd?.type}` },
+    { label: 'PSU',         icon: build.psu?.image_category ? `/images/components/${build.psu.image_category}.svg` : '⚡', item: build.psu,         extra: `${build.psu?.watt}W · ${build.psu?.certification}` },
   ]
 
   return (
@@ -43,7 +43,11 @@ export default function BuildCard({ data }) {
       <div className="space-y-2">
         {components.map(({ label, icon, item, extra }) => item && (
           <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-surface-700/40 hover:bg-surface-700/60 transition-colors">
-            <span className="text-lg w-8 text-center">{icon}</span>
+            {icon.startsWith('/') ? (
+              <img src={icon} alt={label} className="w-8 h-8 object-contain shrink-0" />
+            ) : (
+              <span className="text-lg w-8 text-center shrink-0">{icon}</span>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-400">{label}</p>
               <p className="text-sm font-medium text-white truncate">{item.name}</p>

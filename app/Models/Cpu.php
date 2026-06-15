@@ -10,7 +10,7 @@ class Cpu extends Model
     protected $fillable = [
         'name', 'brand', 'socket', 'ram_type',
         'cores', 'threads', 'base_clock', 'boost_clock',
-        'tdp', 'price',
+        'tdp', 'price', 'image_category',
     ];
 
     protected $casts = [

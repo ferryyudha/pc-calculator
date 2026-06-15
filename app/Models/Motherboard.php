@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Motherboard extends Model
 {
     protected $fillable = [
-        'name', 'brand', 'socket', 'chipset', 'ram_type', 'max_ram', 'price',
+        'name', 'brand', 'socket', 'chipset', 'ram_type', 'max_ram', 'price', 'image_category',
     ];
 
     protected $casts = [

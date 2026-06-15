@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Psu extends Model
 {
     protected $fillable = [
-        'name', 'watt', 'certification', 'price',
+        'name', 'watt', 'certification', 'price', 'image_category',
     ];
 
     protected $casts = [

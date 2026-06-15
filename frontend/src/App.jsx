@@ -6,8 +6,6 @@ import FPSCalculator from './pages/FPSCalculator/FPSCalculator'
 import PSUCalculator from './pages/PSUCalculator/PSUCalculator'
 import BuildRecommendation from './pages/BuildRecommendation/BuildRecommendation'
 import Components from './pages/Components/Components'
-import MonitoringDashboard from './pages/Monitoring/MonitoringDashboard'
-import DeviceDetailsPage from './pages/Monitoring/DeviceDetailsPage'
 
 export default function App() {
   return (
@@ -20,8 +18,6 @@ export default function App() {
           <Route path="/psu-calculator"   element={<PSUCalculator />} />
           <Route path="/build"            element={<BuildRecommendation />} />
           <Route path="/components"       element={<Components />} />
-          <Route path="/monitoring"       element={<MonitoringDashboard />} />
-          <Route path="/monitoring/device/:id" element={<DeviceDetailsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

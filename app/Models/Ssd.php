@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Ssd extends Model
 {
     protected $fillable = [
-        'name', 'type', 'capacity', 'power_draw', 'price',
+        'name', 'type', 'capacity', 'power_draw', 'price', 'image_category',
     ];
 
     protected $casts = [

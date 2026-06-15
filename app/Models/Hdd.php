@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Hdd extends Model
 {
     protected $fillable = [
-        'name', 'capacity', 'power_draw', 'price',
+        'name', 'capacity', 'power_draw', 'price', 'image_category',
     ];
 
     protected $casts = [

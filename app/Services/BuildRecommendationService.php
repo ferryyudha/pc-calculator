@@ -114,12 +114,12 @@ class BuildRecommendationService
 
                 return [
                     'build' => [
-                        'cpu'         => $this->formatComponent($cpu, ['socket', 'ram_type', 'cores', 'threads', 'base_clock', 'boost_clock', 'tdp']),
-                        'gpu'         => $this->formatComponent($gpu, ['vram', 'memory_type', 'power_draw']),
-                        'motherboard' => $this->formatComponent($mobo, ['socket', 'chipset', 'ram_type']),
-                        'ram'         => $this->formatComponent($ram, ['ddr_version', 'capacity', 'speed']),
-                        'ssd'         => $this->formatComponent($ssd, ['type', 'capacity', 'power_draw']),
-                        'psu'         => $this->formatComponent($psu, ['watt', 'certification']),
+                        'cpu'         => $this->formatComponent($cpu, ['socket', 'ram_type', 'cores', 'threads', 'base_clock', 'boost_clock', 'tdp', 'image_category']),
+                        'gpu'         => $this->formatComponent($gpu, ['vram', 'memory_type', 'power_draw', 'image_category']),
+                        'motherboard' => $this->formatComponent($mobo, ['socket', 'chipset', 'ram_type', 'image_category']),
+                        'ram'         => $this->formatComponent($ram, ['ddr_version', 'capacity', 'speed', 'image_category']),
+                        'ssd'         => $this->formatComponent($ssd, ['type', 'capacity', 'power_draw', 'image_category']),
+                        'psu'         => $this->formatComponent($psu, ['watt', 'certification', 'image_category']),
                     ],
                     'total_price'      => $total,
                     'remaining_budget' => $budget - $total,

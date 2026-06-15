@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Gpu extends Model
 {
     protected $fillable = [
-        'name', 'brand', 'vram', 'memory_type', 'power_draw', 'price',
+        'name', 'brand', 'vram', 'memory_type', 'power_draw', 'price', 'image_category',
     ];
 
     protected $casts = [

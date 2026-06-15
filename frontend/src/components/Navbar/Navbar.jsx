@@ -8,7 +8,6 @@ const navItems = [
   { to: '/psu-calculator',   label: 'Kalkulator PSU' },
   { to: '/build',            label: 'Rekomendasi Rakitan' },
   { to: '/components',       label: 'Komponen' },
-  { to: '/monitoring',       label: 'PC Monitor' },
 ]
 
 export default function Navbar() {
