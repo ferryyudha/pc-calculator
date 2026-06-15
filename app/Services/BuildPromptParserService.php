@@ -69,6 +69,8 @@ PROMPT;
             if (json_last_error() === JSON_ERROR_NONE) {
                 return $decoded;
             }
+        } else {
+            \Illuminate\Support\Facades\Log::error('Groq API call failed. Status: ' . $response->status() . ' Body: ' . $response->body() . ' API Key starts with: ' . substr($apiKey, 0, 8));
         }
 
         // Fallback jika AI gagal
