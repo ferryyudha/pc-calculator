@@ -125,7 +125,7 @@ export default function BuildRecommendation() {
           <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap gap-2 text-xs text-gray-400 items-center">
             <span className="font-semibold text-gray-300">Hasil Deteksi AI:</span>
             <span className="bg-surface-700/40 px-2.5 py-1 rounded-md border border-white/5">
-              Budget Maks: <strong className="text-primary">Rp {number_format(detectedInfo.budget_max ?? 0, 0, ',', '.')}</strong>
+              Budget Maks: <strong className="text-primary">{detectedInfo.budget_max ? `Rp ${number_format(detectedInfo.budget_max, 0, ',', '.')}` : 'Rp 10.000.000 (Default)'}</strong>
             </span>
             <span className="bg-surface-700/40 px-2.5 py-1 rounded-md border border-white/5">
               Resolusi: <strong className="text-accent">{detectedInfo.resolution ?? '-'}</strong>

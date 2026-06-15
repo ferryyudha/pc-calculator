@@ -111,7 +111,7 @@
             <div class="mt-4 pt-3 border-t border-slate-700/50 flex flex-wrap gap-2 text-xs text-slate-400 items-center">
                 <span class="font-semibold text-slate-300">Hasil Deteksi AI:</span>
                 <span class="bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800">
-                    Budget Maks: <strong class="text-blue-400">Rp {{ number_format($parsedPrompt['budget_max'] ?? 0, 0, ',', '.') }}</strong>
+                    Budget Maks: <strong class="text-blue-400">Rp {{ !empty($parsedPrompt['budget_max']) ? number_format($parsedPrompt['budget_max'], 0, ',', '.') : '10.000.000 (Default)' }}</strong>
                 </span>
                 <span class="bg-slate-900 px-2.5 py-1 rounded-md border border-slate-800">
                     Resolusi: <strong class="text-purple-400">{{ $parsedPrompt['resolution'] ?? '-' }}</strong>
@@ -231,12 +231,10 @@
                     <div class="flex-1 min-w-0">
                         <div class="text-[10px] tracking-wider text-slate-500 uppercase font-black">Processor</div>
                         <div class="font-extrabold text-white text-base truncate mt-0.5">{{ $result['build']['cpu']['name'] }}</div>
-                        <div class="text-xs text-slate-400 mt-1 flex flex-wrap gap-2">
-                            <span>Socket: {{ $result['build']['cpu']['socket'] }}</span>
-                            <span>•</span>
-                            <span>Cores: {{ $result['build']['cpu']['cores'] }} Cores</span>
-                            <span>•</span>
-                            <span>TDP: {{ $result['build']['cpu']['tdp'] }}W</span>
+                        <div class="text-xs text-slate-400 mt-1">
+                            {{ $result['build']['cpu']['cores'] }} Core / {{ $result['build']['cpu']['threads'] }} Thread
+                            &middot; {{ $result['build']['cpu']['boost_clock'] }} GHz
+                            &middot; TDP {{ $result['build']['cpu']['tdp'] }}W
                         </div>
                     </div>
                     <div class="text-left sm:text-right font-bold text-blue-400 text-lg shrink-0">
@@ -252,10 +250,9 @@
                     <div class="flex-1 min-w-0">
                         <div class="text-[10px] tracking-wider text-slate-500 uppercase font-black">Graphics Card</div>
                         <div class="font-extrabold text-white text-base truncate mt-0.5">{{ $result['build']['gpu']['name'] }}</div>
-                        <div class="text-xs text-slate-400 mt-1 flex flex-wrap gap-2">
-                            <span>VRAM: {{ $result['build']['gpu']['vram'] }} GB</span>
-                            <span>•</span>
-                            <span>Power: {{ $result['build']['gpu']['power_draw'] }}W</span>
+                        <div class="text-xs text-slate-400 mt-1">
+                            {{ $result['build']['gpu']['vram'] }}GB {{ $result['build']['gpu']['memory_type'] }}
+                            &middot; TDP {{ $result['build']['gpu']['power_draw'] }}W
                         </div>
                     </div>
                     <div class="text-left sm:text-right font-bold text-blue-400 text-lg shrink-0">
@@ -271,11 +268,6 @@
                     <div class="flex-1 min-w-0">
                         <div class="text-[10px] tracking-wider text-slate-500 uppercase font-black">Motherboard</div>
                         <div class="font-extrabold text-white text-base truncate mt-0.5">{{ $result['build']['motherboard']['name'] }}</div>
-                        <div class="text-xs text-slate-400 mt-1 flex flex-wrap gap-2">
-                            <span>Socket: {{ $result['build']['motherboard']['socket'] }}</span>
-                            <span>•</span>
-                            <span>Chipset: {{ $result['build']['motherboard']['chipset'] }}</span>
-                        </div>
                     </div>
                     <div class="text-left sm:text-right font-bold text-blue-400 text-lg shrink-0">
                         Rp {{ number_format($result['build']['motherboard']['price'], 0, ',', '.') }}
@@ -290,13 +282,6 @@
                     <div class="flex-1 min-w-0">
                         <div class="text-[10px] tracking-wider text-slate-500 uppercase font-black">Memory (RAM)</div>
                         <div class="font-extrabold text-white text-base truncate mt-0.5">{{ $result['build']['ram']['name'] }}</div>
-                        <div class="text-xs text-slate-400 mt-1 flex flex-wrap gap-2">
-                            <span>Type: {{ $result['build']['ram']['ddr_version'] }}</span>
-                            <span>•</span>
-                            <span>Kapasitas: {{ $result['build']['ram']['capacity'] }}GB</span>
-                            <span>•</span>
-                            <span>Speed: {{ $result['build']['ram']['speed'] }}MHz</span>
-                        </div>
                     </div>
                     <div class="text-left sm:text-right font-bold text-blue-400 text-lg shrink-0">
                         Rp {{ number_format($result['build']['ram']['price'], 0, ',', '.') }}
@@ -311,11 +296,6 @@
                     <div class="flex-1 min-w-0">
                         <div class="text-[10px] tracking-wider text-slate-500 uppercase font-black">Storage (SSD)</div>
                         <div class="font-extrabold text-white text-base truncate mt-0.5">{{ $result['build']['ssd']['name'] }}</div>
-                        <div class="text-xs text-slate-400 mt-1 flex flex-wrap gap-2">
-                            <span>Kapasitas: {{ $result['build']['ssd']['capacity'] }}GB</span>
-                            <span>•</span>
-                            <span>Type: {{ $result['build']['ssd']['type'] }}</span>
-                        </div>
                     </div>
                     <div class="text-left sm:text-right font-bold text-blue-400 text-lg shrink-0">
                         Rp {{ number_format($result['build']['ssd']['price'], 0, ',', '.') }}
@@ -330,11 +310,6 @@
                     <div class="flex-1 min-w-0">
                         <div class="text-[10px] tracking-wider text-slate-500 uppercase font-black">Power Supply (PSU)</div>
                         <div class="font-extrabold text-white text-base truncate mt-0.5">{{ $result['build']['psu']['name'] }}</div>
-                        <div class="text-xs text-slate-400 mt-1 flex flex-wrap gap-2">
-                            <span>Daya: {{ $result['build']['psu']['watt'] }}W</span>
-                            <span>•</span>
-                            <span>Sertifikasi: {{ $result['build']['psu']['certification'] }}</span>
-                        </div>
                     </div>
                     <div class="text-left sm:text-right font-bold text-blue-400 text-lg shrink-0">
                         Rp {{ number_format($result['build']['psu']['price'], 0, ',', '.') }}
