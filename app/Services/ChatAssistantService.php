@@ -125,7 +125,7 @@ Tools yang tersedia:
    params: { "cpu_id": int, "gpu_id": int, "game_id": int, "resolution": "720p|1080p|1440p|4K" }
 
 5. recommend_build - rekomendasi rakitan berdasarkan budget
-   params: { "budget": integer, "game_id": int, "resolution": "720p|1080p|1440p|4K" }
+   params: { "budget": integer, "game_id": integer opsional, "resolution": "720p|1080p|1440p|4K" }
 
 6. search_game - cari game berdasarkan nama untuk mendapatkan game_id
    params: { "keyword": "string" }
@@ -143,6 +143,7 @@ PENTING:
   pertanyaan menyangkut data toko (harga, ketersediaan, rekomendasi)
 - Kalau pertanyaan umum (misal "apa itu DDR5?"), boleh langsung
   final_answer tanpa tool call
+- Jika user tidak menentukan game secara spesifik untuk rekomendasi rakitan, kamu dapat memanggil recommend_build tanpa parameter game_id (sistem akan otomatis menggunakan game populer default). Sampaikan acuan game default tersebut pada respons akhir Anda.
 - Selalu format harga sebagai "Rp X.XXX.XXX"
 - Jika hasil tool kosong/null, sampaikan dengan sopan bahwa data tidak ditemukan
 PROMPT;
@@ -193,7 +194,14 @@ PROMPT;
         $resolution = $params['resolution'] ?? '1080p';
 
         if (!$game) {
-            return ['error' => 'game_id tidak ditemukan di database. Silakan cari game_id terlebih dahulu menggunakan search_game.'];
+            // Gunakan game acuan populer jika user tidak menyertakan game secara spesifik
+            $game = Game::where('name', 'like', '%GTA%')->first()
+                 ?: Game::where('weight_class', 'medium')->first()
+                 ?: Game::first();
+        }
+
+        if (!$game) {
+            return ['error' => 'Tidak ada game acuan di database untuk melakukan estimasi build.'];
         }
 
         $res = $this->buildService->recommend($budget, $game, $resolution);
