@@ -1,5 +1,50 @@
 <style>
 [x-cloak] { display: none !important; }
+.chat-bubble-assistant {
+    background-color: #1e293b;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    border-radius: 1rem;
+    border-top-left-radius: 0;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.625;
+    max-width: 85%;
+    text-align: left;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+.chat-bubble-user {
+    background-color: #2563eb;
+    color: #ffffff;
+    border-radius: 1rem;
+    border-top-right-radius: 0;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.625;
+    max-width: 85%;
+    text-align: left;
+    display: inline-block;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+.chat-bubble-assistant strong {
+    color: #22d3ee;
+    font-weight: 600;
+}
+.chat-bubble-assistant ul {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+    padding-left: 1.25rem;
+    list-style-type: disc;
+}
+.chat-bubble-assistant li {
+    margin-bottom: 0.375rem;
+}
+.chat-bubble-assistant p {
+    margin-bottom: 0.5rem;
+}
+.chat-bubble-assistant p:last-child {
+    margin-bottom: 0;
+}
 </style>
 
 <div x-data="chatWidget()" x-cloak>
@@ -36,9 +81,7 @@
 
             <template x-for="(msg, index) in messages" :key="index">
                 <div :class="msg.role === 'user' ? 'text-right' : 'text-left'">
-                    <div :class="msg.role === 'user'
-                        ? 'inline-block bg-blue-600 text-white rounded-2xl rounded-tr-none px-3.5 py-2 text-sm max-w-[85%] text-left shadow-sm'
-                        : 'inline-block bg-slate-750 text-slate-100 rounded-2xl rounded-tl-none px-3.5 py-2 text-sm max-w-[85%] text-left shadow-sm border border-slate-700/50'"
+                    <div :class="msg.role === 'user' ? 'chat-bubble-user' : 'chat-bubble-assistant'"
                         x-html="formatMessage(msg.content)">
                     </div>
                 </div>
@@ -63,7 +106,7 @@
                 <input type="text" x-model="inputText"
                     placeholder="Tulis pertanyaan..."
                     :disabled="loading"
-                    class="flex-1 bg-slate-900 border border-slate-750 focus:border-blue-500 rounded-xl
+                    class="flex-1 bg-slate-900 border border-slate-700 focus:border-blue-500 rounded-xl
                            px-4 py-2.5 text-sm text-slate-100 focus:outline-none
                            disabled:opacity-50 transition-colors">
                 <button type="submit" :disabled="loading || !inputText.trim()"
@@ -130,11 +173,43 @@ function chatWidget() {
         },
 
         formatMessage(text) {
-            // Basic markdown: bold, list item, dan line break
-            return text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/^\*\s(.*)/gm, '• $1')
-                .replace(/\n/g, '<br>');
+            if (!text) return '';
+            
+            // Normalize newlines
+            let lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+            let resultHtml = [];
+            let inList = false;
+            
+            for (let line of lines) {
+                let trimmed = line.trim();
+                // Check if line starts with * or - for bullet points
+                if (trimmed.startsWith('* ') || trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+                    if (!inList) {
+                        resultHtml.push('<ul class="list-disc pl-5 my-2 space-y-1">');
+                        inList = true;
+                    }
+                    let content = trimmed.replace(/^[*•-]\s+/, '');
+                    // Format bold tags inside the list item
+                    content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    resultHtml.push('<li>' + content + '</li>');
+                } else {
+                    if (inList) {
+                        resultHtml.push('</ul>');
+                        inList = false;
+                    }
+                    if (trimmed === '') {
+                        resultHtml.push('<div class="h-2"></div>'); // Spacing for empty lines
+                    } else {
+                        // Format bold tags inside the paragraph
+                        let content = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                        resultHtml.push('<p class="mb-2 leading-relaxed">' + content + '</p>');
+                    }
+                }
+            }
+            if (inList) {
+                resultHtml.push('</ul>');
+            }
+            return resultHtml.join('');
         }
     }
 }

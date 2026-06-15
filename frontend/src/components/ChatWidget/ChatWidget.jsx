@@ -50,20 +50,41 @@ export default function ChatWidget() {
   }
 
   const formatMessage = (text) => {
-    // Basic markdown support: bold and line breaks
-    return text
-      .split('\n')
-      .map((line, i) => {
-        // Convert bold markdown **text** to strong html
-        let formattedLine = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        // Convert list markdown * text or - text to list element display
-        if (formattedLine.startsWith('* ')) {
-          formattedLine = `• ${formattedLine.substring(2)}`
-        } else if (formattedLine.startsWith('- ')) {
-          formattedLine = `• ${formattedLine.substring(2)}`
+    if (!text) return null;
+
+    let lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    let resultHtml = [];
+    let inList = false;
+
+    for (let line of lines) {
+      let trimmed = line.trim();
+      if (trimmed.startsWith('* ') || trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
+        if (!inList) {
+          resultHtml.push('<ul class="list-disc pl-5 my-2 space-y-1">');
+          inList = true;
         }
-        return <span key={i} dangerouslySetInnerHTML={{ __html: formattedLine }} className="block min-h-[1em]" />
-      })
+        let content = trimmed.replace(/^[*•-]\s+/, '');
+        content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        resultHtml.push('<li>' + content + '</li>');
+      } else {
+        if (inList) {
+          resultHtml.push('</ul>');
+          inList = false;
+        }
+        if (trimmed === '') {
+          resultHtml.push('<div class="h-2"></div>');
+        } else {
+          let content = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+          resultHtml.push('<p class="mb-2 leading-relaxed">' + content + '</p>');
+        }
+      }
+    }
+    if (inList) {
+      resultHtml.push('</ul>');
+    }
+
+    const htmlString = resultHtml.join('');
+    return <div dangerouslySetInnerHTML={{ __html: htmlString }} />;
   }
 
   return (
@@ -82,7 +103,7 @@ export default function ChatWidget() {
       {open && (
         <div
           className="fixed bottom-24 right-6 w-96 max-w-[calc(100vw-3rem)]
-                     bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl
+                     bg-surface-800 border border-surface-600 rounded-2xl shadow-2xl
                      flex flex-col h-[500px] text-slate-100 overflow-hidden animate-slide-up"
         >
           {/* Header */}
@@ -106,8 +127,8 @@ export default function ChatWidget() {
                   <div
                     className={
                       msg.role === 'user'
-                        ? 'inline-block bg-blue-600 text-white rounded-2xl rounded-tr-none px-3.5 py-2 text-sm max-w-[85%] text-left shadow-sm'
-                        : 'inline-block bg-slate-700 text-slate-100 rounded-2xl rounded-tl-none px-3.5 py-2 text-sm max-w-[85%] text-left shadow-sm border border-slate-650'
+                        ? 'inline-block bg-blue-600 text-white rounded-2xl rounded-tr-none px-3.5 py-2.5 text-sm max-w-[85%] text-left shadow-md'
+                        : 'inline-block bg-surface-700 text-slate-100 rounded-2xl rounded-tl-none px-4 py-3 text-sm max-w-[85%] text-left shadow-md border border-surface-600 [&_strong]:text-cyan-400 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-2 [&_li]:mb-1'
                     }
                   >
                     {formatMessage(msg.content)}
@@ -131,7 +152,7 @@ export default function ChatWidget() {
           </div>
 
           {/* Input */}
-          <div className="border-t border-slate-700/60 p-3 bg-slate-800/80 shrink-0">
+          <div className="border-t border-surface-600 p-3 bg-surface-900/80 shrink-0">
             <form onSubmit={handleSend} className="flex gap-2">
               <input
                 type="text"
@@ -139,7 +160,7 @@ export default function ChatWidget() {
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Tulis pertanyaan..."
                 disabled={loading}
-                className="flex-1 bg-slate-900 border border-slate-700 focus:border-blue-500 rounded-xl
+                className="flex-1 bg-surface-900 border border-surface-600 focus:border-blue-500 rounded-xl
                            px-4 py-2.5 text-sm text-slate-100 focus:outline-none
                            disabled:opacity-50 transition-colors"
               />

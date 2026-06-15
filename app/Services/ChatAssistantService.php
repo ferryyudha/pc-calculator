@@ -49,6 +49,8 @@ class ChatAssistantService
                 return ['reply' => 'Maaf, terjadi kesalahan. Coba lagi sebentar.', 'error' => true];
             }
 
+            Log::info("ChatAssistant response turn {$iterations}: " . $response);
+
             // Cari semua blok JSON yang memiliki action
             $jsonBlocks = $this->extractJsonBlocks($response);
 
@@ -69,8 +71,12 @@ class ChatAssistantService
             $toolResultsSummary = [];
 
             foreach ($jsonBlocks as $block) {
-                if (isset($block['action']) && $block['action'] === 'tool_call') {
-                    $toolName   = $block['tool'] ?? null;
+                $action = $block['action'] ?? '';
+                $isToolCall = ($action === 'tool_call');
+                $isDirectTool = in_array($action, ['search_cpu', 'search_gpu', 'check_compatibility', 'get_fps_estimate', 'recommend_build', 'search_game']);
+
+                if ($isToolCall || $isDirectTool) {
+                    $toolName   = $isToolCall ? ($block['tool'] ?? null) : $action;
                     $toolParams = $block['params'] ?? [];
 
                     $toolResult = $this->executeTool($toolName, $toolParams);
@@ -146,6 +152,11 @@ PENTING:
 - Jika user tidak menentukan game secara spesifik untuk rekomendasi rakitan, kamu dapat memanggil recommend_build tanpa parameter game_id (sistem akan otomatis menggunakan game populer default). Sampaikan acuan game default tersebut pada respons akhir Anda.
 - Selalu format harga sebagai "Rp X.XXX.XXX"
 - Jika hasil tool kosong/null, sampaikan dengan sopan bahwa data tidak ditemukan
+- STRUKTUR TULISAN:
+  1. Selalu tampilkan daftar rekomendasi rakitan PC atau kumpulan komponen dengan format bullet-point (menggunakan tanda *).
+  2. Berikan baris baru (newline) untuk setiap komponen. Dilarang keras menuliskan daftar komponen atau spesifikasi dalam bentuk satu paragraf panjang yang menumpuk.
+  3. Gunakan cetak tebal (bold markdown **seperti ini**) pada label komponen (misal **Prosesor**, **Kartu Grafis**), nama model komponen, dan harga/total harga agar mudah dibaca.
+  4. Berikan jarak baris baru ganda (double newline) di antara paragraf pembuka, daftar komponen, dan bagian penutup/FPS.
 PROMPT;
     }
 
@@ -280,6 +291,7 @@ PROMPT;
 
     private function callGroq(array $messages, string $apiKey): ?string
     {
+        $messages = $this->sanitizeMessages($messages);
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$apiKey}",
@@ -290,6 +302,19 @@ PROMPT;
                 'temperature' => 0.3,
                 'max_tokens'  => 1024,
             ]);
+
+            if ($response->status() === 429) {
+                Log::info('ChatAssistant: Groq 429 rate limit reached. Falling back to llama-3.1-8b-instant');
+                $response = Http::withHeaders([
+                    'Authorization' => "Bearer {$apiKey}",
+                    'Content-Type'  => 'application/json',
+                ])->timeout(25)->post('https://api.groq.com/openai/v1/chat/completions', [
+                    'model'       => 'llama-3.1-8b-instant',
+                    'messages'    => $messages,
+                    'temperature' => 0.3,
+                    'max_tokens'  => 1024,
+                ]);
+            }
 
             if ($response->successful()) {
                 return trim($response->json('choices.0.message.content') ?? '');
@@ -352,5 +377,42 @@ PROMPT;
         }
 
         return $blocks;
+    }
+
+    private function sanitizeMessages(array $messages): array
+    {
+        $sanitized = [];
+        foreach ($messages as $msg) {
+            if ($msg['role'] === 'system') {
+                $sanitized[] = $msg;
+                continue;
+            }
+
+            // Find the last non-system message
+            $lastNonSystemKey = null;
+            for ($i = count($sanitized) - 1; $i >= 0; $i--) {
+                if ($sanitized[$i]['role'] !== 'system') {
+                    $lastNonSystemKey = $i;
+                    break;
+                }
+            }
+
+            if ($lastNonSystemKey === null) {
+                // First non-system message must be user
+                if ($msg['role'] === 'user') {
+                    $sanitized[] = $msg;
+                }
+                continue;
+            }
+
+            $lastRole = $sanitized[$lastNonSystemKey]['role'];
+            if ($lastRole === $msg['role']) {
+                // Merge content of same role consecutive messages
+                $sanitized[$lastNonSystemKey]['content'] .= "\n" . $msg['content'];
+            } else {
+                $sanitized[] = $msg;
+            }
+        }
+        return $sanitized;
     }
 }

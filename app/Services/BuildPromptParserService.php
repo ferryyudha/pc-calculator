@@ -63,6 +63,23 @@ PROMPT;
             'response_format' => ['type' => 'json_object'],
         ]);
 
+        if ($response->status() === 429) {
+            \Illuminate\Support\Facades\Log::info('BuildPromptParser: Groq 429 rate limit reached. Falling back to llama-3.1-8b-instant');
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$apiKey}",
+                'Content-Type'  => 'application/json',
+            ])->timeout(20)->post('https://api.groq.com/openai/v1/chat/completions', [
+                'model'           => 'llama-3.1-8b-instant',
+                'messages'        => [
+                    ['role' => 'system', 'content' => $systemPrompt],
+                    ['role' => 'user', 'content' => $prompt],
+                ],
+                'temperature'     => 0.1,
+                'max_tokens'      => 512,
+                'response_format' => ['type' => 'json_object'],
+            ]);
+        }
+
         if ($response->successful()) {
             $content = $response->json('choices.0.message.content');
             $decoded = json_decode($content, true);
