@@ -163,11 +163,11 @@ Tools yang tersedia:
 1. search_cpu - cari CPU berdasarkan kata kunci dan/atau budget maksimal
    params: { "keyword": "string opsional", "max_price": integer opsional }
 
-2. search_gpu - cari GPU berdasarkan kata kunci dan/atau budget maksimal
-   params: { "keyword": "string opsional", "max_price": integer opsional }
+2. search_gpu - cari GPU berdasarkan kata kunci, kapasitas VRAM minimal, dan/atau budget maksimal
+   params: { "keyword": "string opsional", "min_vram": integer opsional dalam GB (contoh: 8, 12, 16), "max_price": integer opsional }
 
-3. search_ram - cari RAM berdasarkan kata kunci dan/atau budget maksimal
-   params: { "keyword": "string opsional", "max_price": integer opsional }
+3. search_ram - cari RAM berdasarkan kata kunci, kapasitas memori minimal, dan/atau budget maksimal
+   params: { "keyword": "string opsional", "min_capacity": integer opsional dalam GB (contoh: 8, 16, 32), "max_price": integer opsional }
 
 4. search_psu - cari PSU berdasarkan kata kunci dan/atau budget maksimal
    params: { "keyword": "string opsional", "max_price": integer opsional }
@@ -175,8 +175,8 @@ Tools yang tersedia:
 5. search_motherboard - cari Motherboard berdasarkan kata kunci dan/atau budget maksimal
    params: { "keyword": "string opsional", "max_price": integer opsional }
 
-6. search_ssd - cari SSD berdasarkan kata kunci dan/atau budget maksimal
-   params: { "keyword": "string opsional", "max_price": integer opsional }
+6. search_ssd - cari SSD berdasarkan kata kunci, kapasitas storage minimal, dan/atau budget maksimal
+   params: { "keyword": "string opsional", "min_capacity": integer opsional dalam GB (contoh: 256, 512, 1000), "max_price": integer opsional }
 
 7. check_compatibility - cek kompatibilitas komponen
    params: { "cpu_id": int, "motherboard_id": int, "ram_id": int, "gpu_id": int, "psu_id": int }
@@ -227,6 +227,11 @@ PENTING:
   2. Gunakan search_cpu/search_gpu untuk menampilkan harga asli komponen yang diminta.
 - Jika Anda ingin memanggil tool, balas HANYA dengan objek JSON tool call. Jangan menulis teks apapun sebelum atau sesudah JSON.
 - PENCARIAN SPESIFIK: Jika user menanyakan ketersediaan komponen tertentu (misal: "MSI B550M-A PRO ada gak?"), JANGAN batasi parameter max_price pada tool search, agar pencarian tidak terhambat oleh budget rekomendasi sebelumnya.
+- FILTER KAPASITAS NUMERIK: Jika user menyebutkan kapasitas secara eksplisit, SELALU gunakan parameter numerik yang tersedia, BUKAN memasukkan angka ke dalam "keyword":
+  * GPU: gunakan "min_vram" (contoh: user minta "GPU 16GB" → min_vram: 16, bukan keyword: "16GB")
+  * RAM: gunakan "min_capacity" (contoh: user minta "RAM 32GB" → min_capacity: 32, bukan keyword: "32GB")
+  * SSD: gunakan "min_capacity" (contoh: user minta "SSD 1TB" atau "SSD 1000GB" → min_capacity: 1000, bukan keyword: "1TB")
+  Memasukkan angka kapasitas ke "keyword" rentan gagal karena pencarian nama produk bersifat exact substring match dan sensitif terhadap perbedaan format (spasi, singkatan G/GB/TB, dst).
 - Jangan asal jawab harga atau spek tanpa tool jika pertanyaan menyangkut data toko.
 - Kalau pertanyaan umum (misal "apa itu DDR5?"), boleh langsung final_answer tanpa tool.
 - Jika user tidak menyebut game spesifik, panggil recommend_build tanpa game_id.
@@ -364,6 +369,9 @@ PROMPT;
         if (!empty($params['keyword'])) {
             $query->where('gpus.name', 'like', '%' . $params['keyword'] . '%');
         }
+        if (!empty($params['min_vram'])) {
+            $query->where('gpus.vram', '>=', (int) $params['min_vram']);
+        }
         if (!empty($params['max_price'])) {
             $query->where('gpus.price', '<=', $params['max_price']);
         }
@@ -377,6 +385,9 @@ PROMPT;
         $query = Ram::query();
         if (!empty($params['keyword'])) {
             $query->where('rams.name', 'like', '%' . $params['keyword'] . '%');
+        }
+        if (!empty($params['min_capacity'])) {
+            $query->where('rams.capacity', '>=', (int) $params['min_capacity']);
         }
         if (!empty($params['max_price'])) {
             $query->where('rams.price', '<=', $params['max_price']);
@@ -427,6 +438,9 @@ PROMPT;
         $query = Ssd::query();
         if (!empty($params['keyword'])) {
             $query->where('ssds.name', 'like', '%' . $params['keyword'] . '%');
+        }
+        if (!empty($params['min_capacity'])) {
+            $query->where('ssds.capacity', '>=', (int) $params['min_capacity']);
         }
         if (!empty($params['max_price'])) {
             $query->where('ssds.price', '<=', $params['max_price']);
