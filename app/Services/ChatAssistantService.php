@@ -93,11 +93,21 @@ class ChatAssistantService
                 $isDirectTool = in_array($action, ['search_cpu', 'search_gpu', 'search_ram', 'search_psu', 'search_motherboard', 'search_ssd', 'check_compatibility', 'get_fps_estimate', 'recommend_build', 'search_game']);
 
                 if ($isToolCall || $isDirectTool) {
-                    $toolName = $isToolCall ? ($block['tool'] ?? null) : $action;
+                    $toolName   = $isToolCall ? ($block['tool'] ?? null) : $action;
                     $toolParams = $block['params'] ?? [];
 
                     $toolResult = $this->executeTool($toolName, $toolParams);
-                    $toolResultsSummary[] = "TOOL_RESULT for {$toolName}: " . json_encode($toolResult);
+
+                    $isSingleSearchResult = in_array($toolName, ['search_cpu', 'search_gpu', 'search_ram', 'search_psu', 'search_motherboard', 'search_ssd'])
+                        && is_array($toolResult)
+                        && count($toolResult) === 1;
+
+                    if ($isSingleSearchResult) {
+                        $toolResultsSummary[] = "TOOL_RESULT for {$toolName} (HANYA 1 HASIL — ikuti KASUS B, langsung pilih item ini tanpa menampilkan daftar atau menanyakan konfirmasi nomor): " . json_encode($toolResult);
+                    } else {
+                        $toolResultsSummary[] = "TOOL_RESULT for {$toolName}: " . json_encode($toolResult);
+                    }
+
                     $toolCallsRun = true;
                 }
             }
@@ -196,11 +206,20 @@ PENTING:
   2. Panggil tool check_compatibility dengan id-id tersebut.
   3. DILARANG mengarang jawaban kompatibilitas tanpa memanggil tool.
 - GANTI KOMPONEN (KHUSUS): Aturan ini HANYA berlaku jika user secara eksplisit meminta mengganti/mencari komponen alternatif (contoh: "ganti RAM-nya jadi Klev", "prosesornya mau Ryzen 5", "PSU-nya ganti", "RAM-nya stok gak ada mau ganti", "motherboard ganti B550"). TIDAK berlaku untuk rekomendasi rakitan lengkap.
-  Jika kondisi ini terpenuhi:
-  1. Gunakan tool search_cpu / search_gpu / search_ram / search_psu / search_motherboard / search_ssd dengan keyword komponen yang diminta.
-  2. Tampilkan SEMUA pilihan yang ditemukan (maks 5) dalam format bullet-point BERNOMOR (1., 2., 3., dst), lengkap dengan nama dan harga.
-  3. Akhiri HANYA dengan kalimat: "Silakan pilih nomor yang Anda inginkan."
-  4. JANGAN langsung memilihkan salah satu komponen atau memperbarui spesifikasi rakitan lengkap pada turn yang sama. Anda WAJIB berhenti setelah menampilkan daftar pilihan dan menunggu konfirmasi angka dari user (kecuali jika hasil pencarian hanya ada 1 komponen).
+  Jika kondisi ini terpenuhi, gunakan tool search_cpu / search_gpu / search_ram / search_psu / search_motherboard / search_ssd dengan keyword komponen yang diminta, lalu:
+
+  KASUS A — Hasil pencarian LEBIH DARI 1 item:
+  1. Tampilkan SEMUA pilihan (maks 5) dalam format bullet-point BERNOMOR (1., 2., 3., dst), lengkap dengan nama dan harga.
+  2. Akhiri HANYA dengan kalimat: "Silakan pilih nomor yang Anda inginkan."
+  3. WAJIB berhenti di sini. JANGAN memilihkan salah satu komponen atau memperbarui spesifikasi rakitan pada turn yang sama. Tunggu user membalas dengan nomor pilihan.
+
+  KASUS B — Hasil pencarian HANYA 1 item (atau ditandai "HANYA 1 HASIL" pada TOOL_RESULT):
+  1. JANGAN tampilkan daftar bernomor. JANGAN tanya "pilih nomor yang Anda inginkan".
+  2. Langsung anggap item tersebut sebagai pilihan final user.
+  3. Beri jawaban final_answer singkat, contoh: "Ditemukan satu komponen yang cocok: **<nama>** - **Rp <harga>**. Spesifikasi rakitan Anda telah diperbarui." (sesuaikan kalimat dengan konteks, jangan menyalin teks ini secara harfiah).
+
+  KASUS C — Hasil pencarian KOSONG (0 item):
+  1. Sampaikan dengan sopan bahwa komponen yang diminta tidak ditemukan di database, dan tawarkan untuk mencari dengan kata kunci lain.
 - REKOMENDASI RAKITAN (recommend_build): Saat merespons hasil recommend_build, tampilkan rakitan lengkap sebagai jawaban final. JANGAN tambahkan "Silakan pilih nomor" di akhir karena ini bukan pemilihan komponen satuan.
 - Jika tool recommend_build atau tool pencarian mengembalikan error atau tidak menemukan hasil, jelaskan dengan jujur bahwa budget tidak cukup atau data tidak ditemukan.
 - Jika user meminta CPU/GPU tertentu (misal: Ryzen 5, RTX 3060) dan hasil recommend_build tidak cocok:
