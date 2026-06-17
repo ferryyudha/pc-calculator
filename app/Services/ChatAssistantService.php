@@ -8,6 +8,7 @@ use App\Models\Motherboard;
 use App\Models\Ram;
 use App\Models\Psu;
 use App\Models\Game;
+use App\Models\Ssd;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -77,7 +78,7 @@ class ChatAssistantService
             foreach ($jsonBlocks as $block) {
                 $action = $block['action'] ?? '';
                 $isToolCall = ($action === 'tool_call');
-                $isDirectTool = in_array($action, ['search_cpu', 'search_gpu', 'check_compatibility', 'get_fps_estimate', 'recommend_build', 'search_game']);
+                $isDirectTool = in_array($action, ['search_cpu', 'search_gpu', 'search_ram', 'search_psu', 'search_motherboard', 'search_ssd', 'check_compatibility', 'get_fps_estimate', 'recommend_build', 'search_game']);
 
                 if ($isToolCall || $isDirectTool) {
                     $toolName   = $isToolCall ? ($block['tool'] ?? null) : $action;
@@ -140,17 +141,23 @@ Tools yang tersedia:
 4. search_psu - cari PSU berdasarkan kata kunci dan/atau budget maksimal
    params: { "keyword": "string opsional", "max_price": integer opsional }
 
-5. check_compatibility - cek kompatibilitas komponen
+5. search_motherboard - cari Motherboard berdasarkan kata kunci dan/atau budget maksimal
+   params: { "keyword": "string opsional", "max_price": integer opsional }
+
+6. search_ssd - cari SSD berdasarkan kata kunci dan/atau budget maksimal
+   params: { "keyword": "string opsional", "max_price": integer opsional }
+
+7. check_compatibility - cek kompatibilitas komponen
    params: { "cpu_id": int, "motherboard_id": int, "ram_id": int, "gpu_id": int, "psu_id": int }
 
-6. get_fps_estimate - estimasi FPS untuk game tertentu
+8. get_fps_estimate - estimasi FPS untuk game tertentu
    params: { "cpu_id": int, "gpu_id": int, "game_id": int, "resolution": "720p|1080p|1440p|4K" }
 
-7. recommend_build - rekomendasi rakitan berdasarkan budget
+9. recommend_build - rekomendasi rakitan berdasarkan budget
    params: { "budget": integer, "game_id": integer opsional, "resolution": "720p|1080p|1440p|4K" }
 
-8. search_game - cari game berdasarkan nama untuk mendapatkan game_id
-   params: { "keyword": "string" }
+10. search_game - cari game berdasarkan nama untuk mendapatkan game_id
+    params: { "keyword": "string" }
 
 Setelah mendapat hasil tool (akan dikirim sebagai "TOOL_RESULT"), gunakan
 data tersebut untuk menjawab pertanyaan user secara natural. Untuk jawaban
@@ -162,9 +169,9 @@ final, balas dengan JSON:
 
 PENTING:
 - DILARANG KERAS mengarang/merekomendasikan komponen PC, harga, atau spesifikasi secara manual dari ingatan Anda. Anda WAJIB memanggil tool untuk mendapatkan data nyata dari database toko.
-- GANTI KOMPONEN (KHUSUS): Aturan ini HANYA berlaku jika user secara eksplisit meminta mengganti SATU komponen tertentu saja (contoh: "ganti RAM-nya jadi Klev", "prosesornya mau Ryzen 5", "PSU-nya ganti", "RAM-nya stok gak ada mau ganti"). TIDAK berlaku untuk rekomendasi rakitan lengkap.
+- GANTI KOMPONEN (KHUSUS): Aturan ini HANYA berlaku jika user secara eksplisit meminta mengganti SATU komponen tertentu saja (contoh: "ganti RAM-nya jadi Klev", "prosesornya mau Ryzen 5", "PSU-nya ganti", "RAM-nya stok gak ada mau ganti", "motherboard ganti B550"). TIDAK berlaku untuk rekomendasi rakitan lengkap.
   Jika kondisi ini terpenuhi:
-  1. Gunakan tool search_cpu / search_gpu / search_ram / search_psu dengan keyword komponen yang diminta.
+  1. Gunakan tool search_cpu / search_gpu / search_ram / search_psu / search_motherboard / search_ssd dengan keyword komponen yang diminta.
   2. Tampilkan SEMUA pilihan yang ditemukan (maks 5) dalam format bullet-point BERNOMOR (1., 2., 3., dst), lengkap dengan nama dan harga.
   3. Akhiri HANYA dengan kalimat: "Silakan pilih nomor yang Anda inginkan."
   4. JANGAN langsung memilihkan satu komponen tanpa konfirmasi user (kecuali hanya ada 1 hasil).
@@ -174,6 +181,7 @@ PENTING:
   1. Jelaskan secara jujur bahwa budget tidak mencukupi.
   2. Gunakan search_cpu/search_gpu untuk menampilkan harga asli komponen yang diminta.
 - Jika Anda ingin memanggil tool, balas HANYA dengan objek JSON tool call. Jangan menulis teks apapun sebelum atau sesudah JSON.
+- PENCARIAN SPESIFIK: Jika user menanyakan ketersediaan komponen tertentu (misal: "MSI B550M-A PRO ada gak?"), JANGAN batasi parameter max_price pada tool search, agar pencarian tidak terhambat oleh budget rekomendasi sebelumnya.
 - Jangan asal jawab harga atau spek tanpa tool jika pertanyaan menyangkut data toko.
 - Kalau pertanyaan umum (misal "apa itu DDR5?"), boleh langsung final_answer tanpa tool.
 - Jika user tidak menyebut game spesifik, panggil recommend_build tanpa game_id.
@@ -194,6 +202,8 @@ PROMPT;
             'search_gpu'          => $this->searchGpu($params),
             'search_ram'          => $this->searchRam($params),
             'search_psu'          => $this->searchPsu($params),
+            'search_motherboard'  => $this->searchMotherboard($params),
+            'search_ssd'          => $this->searchSsd($params),
             'search_game'         => $this->searchGame($params),
             'check_compatibility' => $this->runCompatibilityCheck($params),
             'get_fps_estimate'    => (isset($params['cpu_id'], $params['gpu_id'], $params['game_id']))
@@ -343,6 +353,34 @@ PROMPT;
         return Game::where('name', 'like', '%' . ($params['keyword'] ?? '') . '%')
             ->limit(5)
             ->get(['id', 'name', 'weight_class'])
+            ->toArray();
+    }
+
+    private function searchMotherboard(array $params): array
+    {
+        $query = Motherboard::query();
+        if (!empty($params['keyword'])) {
+            $query->where('name', 'like', '%' . $params['keyword'] . '%');
+        }
+        if (!empty($params['max_price'])) {
+            $query->where('price', '<=', $params['max_price']);
+        }
+        return $query->orderBy('price', 'desc')->limit(5)
+            ->get(['id', 'name', 'socket', 'chipset', 'ram_type', 'max_ram', 'price'])
+            ->toArray();
+    }
+
+    private function searchSsd(array $params): array
+    {
+        $query = Ssd::query();
+        if (!empty($params['keyword'])) {
+            $query->where('name', 'like', '%' . $params['keyword'] . '%');
+        }
+        if (!empty($params['max_price'])) {
+            $query->where('price', '<=', $params['max_price']);
+        }
+        return $query->orderBy('price', 'desc')->limit(5)
+            ->get(['id', 'name', 'type', 'capacity', 'power_draw', 'price'])
             ->toArray();
     }
 
