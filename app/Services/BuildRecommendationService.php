@@ -33,9 +33,11 @@ class BuildRecommendationService
 {
     private const GPU_BUDGET_RATIO = 0.45;
     private const CPU_BUDGET_RATIO = 0.25;
-    private const PSU_OVERHEAD_W   = 43;    // Tambahan overhead untuk menentukan kapasitas PSU
+    private const PSU_OVERHEAD_W = 43;    // Tambahan overhead untuk menentukan kapasitas PSU
 
-    public function __construct(private FpsService $fpsService) {}
+    public function __construct(private FpsService $fpsService)
+    {
+    }
 
     public function recommend(int $budget, Game $game, string $resolution): array|null
     {
@@ -65,30 +67,36 @@ class BuildRecommendationService
                     ->orderBy('price', 'asc')
                     ->first();
 
-                if (!$mobo) continue;
+                if (!$mobo)
+                    continue;
 
                 // Langkah 4: Cari RAM termurah yang kompatibel
                 $ram = Ram::where('ddr_version', $mobo->ram_type)
                     ->orderBy('price', 'asc')
                     ->first();
 
-                if (!$ram) continue;
+                if (!$ram)
+                    continue;
 
                 // Langkah 4.5 — Ambil SSD termurah dari database
                 $ssd = Ssd::orderBy('price', 'asc')->first();
-                if (!$ssd) continue;  // skip jika tidak ada SSD di database
+                if (!$ssd)
+                    continue;  // skip jika tidak ada SSD di database
 
                 // Langkah 5: Hitung kebutuhan watt PSU
-                $psuNeeded = (int) ceil(($cpu->tdp + $gpu->power_draw) * 1.3) + self::PSU_OVERHEAD_W;
+                $calculatedPsu = (int) ceil((($cpu->tdp + $gpu->power_draw) * 1.4) + 120);
+                $psuNeeded = max($calculatedPsu, $gpu->min_recommended_psu ?? 0);
                 $psu = Psu::where('watt', '>=', $psuNeeded)
                     ->orderBy('watt', 'asc')
                     ->first();
 
-                if (!$psu) continue;
+                if (!$psu)
+                    continue;
 
                 // Langkah 6: Pastikan total harga tidak melebihi budget
                 $total = $cpu->price + $gpu->price + $mobo->price + $ram->price + $psu->price + $ssd->price;
-                if ($total > $budget) continue;
+                if ($total > $budget)
+                    continue;
 
                 // Langkah 7: Ambil estimasi FPS dari data benchmark
                 $fpsResult = $this->fpsService->estimate($cpu->id, $gpu->id, $game->id, $resolution);
@@ -96,17 +104,17 @@ class BuildRecommendationService
                 // Simpan ke tabel history (tidak memblok response jika gagal)
                 try {
                     BuildRecommendation::create([
-                        'budget'         => $budget,
-                        'game_id'        => $game->id,
-                        'resolution'     => $resolution,
-                        'cpu_id'         => $cpu->id,
-                        'gpu_id'         => $gpu->id,
+                        'budget' => $budget,
+                        'game_id' => $game->id,
+                        'resolution' => $resolution,
+                        'cpu_id' => $cpu->id,
+                        'gpu_id' => $gpu->id,
                         'motherboard_id' => $mobo->id,
-                        'ram_id'         => $ram->id,
-                        'ssd_id'         => $ssd->id,
-                        'psu_id'         => $psu->id,
-                        'total_price'    => $total,
-                        'estimated_fps'  => $fpsResult ? $fpsResult['fps']['high'] : null,
+                        'ram_id' => $ram->id,
+                        'ssd_id' => $ssd->id,
+                        'psu_id' => $psu->id,
+                        'total_price' => $total,
+                        'estimated_fps' => $fpsResult ? $fpsResult['fps']['high'] : null,
                     ]);
                 } catch (\Exception) {
                     // Tidak kritis — kegagalan pencatatan history tidak boleh merusak response utama
@@ -114,17 +122,17 @@ class BuildRecommendationService
 
                 return [
                     'build' => [
-                        'cpu'         => $this->formatComponent($cpu, ['socket', 'ram_type', 'cores', 'threads', 'base_clock', 'boost_clock', 'tdp', 'image_category']),
-                        'gpu'         => $this->formatComponent($gpu, ['vram', 'memory_type', 'power_draw', 'image_category']),
+                        'cpu' => $this->formatComponent($cpu, ['socket', 'ram_type', 'cores', 'threads', 'base_clock', 'boost_clock', 'tdp', 'image_category']),
+                        'gpu' => $this->formatComponent($gpu, ['vram', 'memory_type', 'power_draw', 'image_category']),
                         'motherboard' => $this->formatComponent($mobo, ['socket', 'chipset', 'ram_type', 'image_category']),
-                        'ram'         => $this->formatComponent($ram, ['ddr_version', 'capacity', 'speed', 'image_category']),
-                        'ssd'         => $this->formatComponent($ssd, ['type', 'capacity', 'power_draw', 'image_category']),
-                        'psu'         => $this->formatComponent($psu, ['watt', 'certification', 'image_category']),
+                        'ram' => $this->formatComponent($ram, ['ddr_version', 'capacity', 'speed', 'image_category']),
+                        'ssd' => $this->formatComponent($ssd, ['type', 'capacity', 'power_draw', 'image_category']),
+                        'psu' => $this->formatComponent($psu, ['watt', 'certification', 'image_category']),
                     ],
-                    'total_price'      => $total,
+                    'total_price' => $total,
                     'remaining_budget' => $budget - $total,
-                    'estimated_fps'    => $fpsResult ? $fpsResult['fps'] : null,
-                    'fps_source'       => $fpsResult ? $fpsResult['source'] : null,
+                    'estimated_fps' => $fpsResult ? $fpsResult['fps'] : null,
+                    'fps_source' => $fpsResult ? $fpsResult['source'] : null,
                 ];
             }
         }
