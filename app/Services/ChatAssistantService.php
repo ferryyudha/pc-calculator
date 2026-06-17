@@ -98,8 +98,14 @@ class ChatAssistantService
                 continue;
             }
 
-            // Fallback
-            return ['reply' => $response, 'error' => false];
+            // JSON ada tapi bukan tool_call / final_answer yang dikenal
+            // Minta model untuk membuat final_answer yang proper
+            $messages[] = ['role' => 'assistant', 'content' => $response];
+            $messages[] = [
+                'role'    => 'user',
+                'content' => 'Tolong berikan jawaban final dalam format JSON: {"action":"final_answer","message":"..."}',
+            ];
+            continue;
         }
 
         return ['reply' => 'Maaf, terlalu banyak proses. Coba pertanyaan yang lebih spesifik.', 'error' => true];
@@ -128,16 +134,22 @@ Tools yang tersedia:
 2. search_gpu - cari GPU berdasarkan kata kunci dan/atau budget maksimal
    params: { "keyword": "string opsional", "max_price": integer opsional }
 
-3. check_compatibility - cek kompatibilitas komponen
+3. search_ram - cari RAM berdasarkan kata kunci dan/atau budget maksimal
+   params: { "keyword": "string opsional", "max_price": integer opsional }
+
+4. search_psu - cari PSU berdasarkan kata kunci dan/atau budget maksimal
+   params: { "keyword": "string opsional", "max_price": integer opsional }
+
+5. check_compatibility - cek kompatibilitas komponen
    params: { "cpu_id": int, "motherboard_id": int, "ram_id": int, "gpu_id": int, "psu_id": int }
 
-4. get_fps_estimate - estimasi FPS untuk game tertentu
+6. get_fps_estimate - estimasi FPS untuk game tertentu
    params: { "cpu_id": int, "gpu_id": int, "game_id": int, "resolution": "720p|1080p|1440p|4K" }
 
-5. recommend_build - rekomendasi rakitan berdasarkan budget
+7. recommend_build - rekomendasi rakitan berdasarkan budget
    params: { "budget": integer, "game_id": integer opsional, "resolution": "720p|1080p|1440p|4K" }
 
-6. search_game - cari game berdasarkan nama untuk mendapatkan game_id
+8. search_game - cari game berdasarkan nama untuk mendapatkan game_id
    params: { "keyword": "string" }
 
 Setelah mendapat hasil tool (akan dikirim sebagai "TOOL_RESULT"), gunakan
@@ -149,36 +161,40 @@ final, balas dengan JSON:
 }
 
 PENTING:
-- DILARANG KERAS mengarang/merekomendasikan komponen PC, harga, atau spesifikasi secara manual dari ingatan Anda. Anda WAJIB memanggil tool (seperti recommend_build, search_cpu, search_gpu) untuk mendapatkan data nyata dari database toko.
-- Jika tool recommend_build atau tool pencarian mengembalikan error atau tidak menemukan hasil (misalnya budget tidak cukup), Anda harus menjelaskan kepada user bahwa budget tidak cukup atau data tidak cocok berdasarkan hasil dari database tersebut, dan jangan mengarang rakitan fiktif sendiri yang tidak sesuai kenyataan.
-- Jika user meminta spesifikasi atau CPU/GPU tertentu (misal: Ryzen 5, Ryzen 7, RTX 3060) dan Anda memanggil tool recommend_build:
-  1. Periksa apakah CPU/GPU dalam hasil recommend_build cocok dengan yang diminta user (misalnya, jika user meminta Ryzen 5, pastikan nama CPU mengandung "Ryzen 5").
-  2. Jika komponen dalam hasil tool tersebut TIDAK cocok (misalnya user meminta Ryzen 5 tetapi hasil tool memberikan AMD A6-9500), Anda harus menjelaskan kepada user secara jujur bahwa budget mereka tidak mencukupi untuk rakitan dengan komponen yang diminta.
-  3. Sebutkan harga asli komponen yang diminta tersebut (gunakan tool search_cpu / search_gpu jika Anda belum tahu harganya), dan jelaskan perkiraan budget minimal yang dibutuhkan untuk rakitan yang kompatibel dengan komponen tersebut (misal: Ryzen 5 5600 seharga Rp 1.935.000, sehingga rakitan lengkap membutuhkan minimal Rp 7.300.000). Jangan berbohong atau melabeli AMD A6-9500 sebagai Ryzen 5.
-- Jika Anda ingin memanggil tool, balas HANYA dengan objek JSON tool call tersebut. Jangan menulis penjelasan teks sebelum atau sesudah JSON.
-- Jangan asal jawab harga atau spek tanpa memanggil tool dulu jika
-  pertanyaan menyangkut data toko (harga, ketersediaan, rekomendasi)
-- Kalau pertanyaan umum (misal "apa itu DDR5?"), boleh langsung
-  final_answer tanpa tool call
-- Jika user tidak menentukan game secara spesifik untuk rekomendasi rakitan, kamu dapat memanggil recommend_build tanpa parameter game_id (sistem akan otomatis menggunakan game populer default). Sampaikan acuan game default tersebut pada respons akhir Anda.
-- Selalu format harga sebagai "Rp X.XXX.XXX"
-- Jika hasil tool kosong/null, sampaikan dengan sopan bahwa data tidak ditemukan
+- DILARANG KERAS mengarang/merekomendasikan komponen PC, harga, atau spesifikasi secara manual dari ingatan Anda. Anda WAJIB memanggil tool untuk mendapatkan data nyata dari database toko.
+- GANTI KOMPONEN: Jika user meminta mengganti salah satu komponen (misal "ganti prosesornya jadi Ryzen 5", "mau RAM Corsair", "PSU-nya ganti", "RAM-nya stok gak ada mau ganti"):
+  1. Gunakan tool search_cpu / search_gpu / search_ram / search_psu dengan keyword yang sesuai.
+  2. Tampilkan SEMUA pilihan yang ditemukan (maks 5) dalam format bullet-point bernomor, lengkap dengan nama dan harga masing-masing.
+  3. Akhiri dengan: "Silakan pilih nomor yang Anda inginkan."
+  4. JANGAN langsung memilihkan satu komponen tanpa konfirmasi user (kecuali hanya ada 1 hasil).
+- Jika tool recommend_build atau tool pencarian mengembalikan error atau tidak menemukan hasil, jelaskan dengan jujur bahwa budget tidak cukup atau data tidak ditemukan.
+- Jika user meminta CPU/GPU tertentu (misal: Ryzen 5, RTX 3060) dan hasil recommend_build tidak cocok:
+  1. Jelaskan secara jujur bahwa budget tidak mencukupi.
+  2. Gunakan search_cpu/search_gpu untuk menampilkan harga asli komponen yang diminta.
+- Jika Anda ingin memanggil tool, balas HANYA dengan objek JSON tool call. Jangan menulis teks apapun sebelum atau sesudah JSON.
+- Jangan asal jawab harga atau spek tanpa tool jika pertanyaan menyangkut data toko.
+- Kalau pertanyaan umum (misal "apa itu DDR5?"), boleh langsung final_answer tanpa tool.
+- Jika user tidak menyebut game spesifik, panggil recommend_build tanpa game_id.
+- Selalu format harga sebagai "Rp X.XXX.XXX".
+- Jika hasil tool kosong/null, sampaikan dengan sopan bahwa data tidak ditemukan.
 - STRUKTUR TULISAN:
-  1. Selalu tampilkan daftar rekomendasi rakitan PC atau kumpulan komponen dengan format bullet-point (menggunakan tanda *).
-  2. Berikan baris baru (newline) untuk setiap komponen. Dilarang keras menuliskan daftar komponen atau spesifikasi dalam bentuk satu paragraf panjang yang menumpuk.
-  3. Gunakan cetak tebal (bold markdown **seperti ini**) pada label komponen (misal **Prosesor**, **Kartu Grafis**), nama model komponen, dan harga/total harga agar mudah dibaca.
-  4. Berikan jarak baris baru ganda (double newline) di antara paragraf pembuka, daftar komponen, dan bagian penutup/FPS.
+  1. Tampilkan daftar komponen dengan format bullet-point (tanda *).
+  2. Berikan baris baru untuk setiap komponen. Dilarang menuliskan daftar dalam satu paragraf panjang.
+  3. Gunakan **bold** pada label komponen, nama model, dan harga.
+  4. Berikan baris kosong di antara paragraf pembuka, daftar komponen, dan bagian penutup.
 PROMPT;
     }
 
     private function executeTool(string $tool, array $params): mixed
     {
         return match ($tool) {
-            'search_cpu' => $this->searchCpu($params),
-            'search_gpu' => $this->searchGpu($params),
-            'search_game' => $this->searchGame($params),
+            'search_cpu'          => $this->searchCpu($params),
+            'search_gpu'          => $this->searchGpu($params),
+            'search_ram'          => $this->searchRam($params),
+            'search_psu'          => $this->searchPsu($params),
+            'search_game'         => $this->searchGame($params),
             'check_compatibility' => $this->runCompatibilityCheck($params),
-            'get_fps_estimate' => (isset($params['cpu_id'], $params['gpu_id'], $params['game_id']))
+            'get_fps_estimate'    => (isset($params['cpu_id'], $params['gpu_id'], $params['game_id']))
                 ? $this->fpsService->estimate(
                     (int) $params['cpu_id'],
                     (int) $params['gpu_id'],
@@ -186,8 +202,8 @@ PROMPT;
                     $params['resolution'] ?? '1080p'
                 )
                 : ['error' => 'cpu_id, gpu_id, dan game_id wajib diisi untuk estimasi FPS.'],
-            'recommend_build' => $this->runRecommendBuild($params),
-            default => ['error' => "Unknown tool: {$tool}"],
+            'recommend_build'     => $this->runRecommendBuild($params),
+            default               => ['error' => "Unknown tool: {$tool}"],
         };
     }
 
@@ -292,6 +308,34 @@ PROMPT;
             ->toArray();
     }
 
+    private function searchRam(array $params): array
+    {
+        $query = Ram::query();
+        if (!empty($params['keyword'])) {
+            $query->where('name', 'like', '%' . $params['keyword'] . '%');
+        }
+        if (!empty($params['max_price'])) {
+            $query->where('price', '<=', $params['max_price']);
+        }
+        return $query->orderBy('price', 'desc')->limit(5)
+            ->get(['id', 'name', 'ddr_version', 'capacity', 'speed', 'sticks', 'price'])
+            ->toArray();
+    }
+
+    private function searchPsu(array $params): array
+    {
+        $query = Psu::query();
+        if (!empty($params['keyword'])) {
+            $query->where('name', 'like', '%' . $params['keyword'] . '%');
+        }
+        if (!empty($params['max_price'])) {
+            $query->where('price', '<=', $params['max_price']);
+        }
+        return $query->orderBy('price', 'desc')->limit(5)
+            ->get(['id', 'name', 'watt', 'certification', 'price'])
+            ->toArray();
+    }
+
     private function searchGame(array $params): array
     {
         return Game::where('name', 'like', '%' . ($params['keyword'] ?? '') . '%')
@@ -303,39 +347,53 @@ PROMPT;
     private function callGroq(array $messages, string $apiKey): ?string
     {
         $messages = $this->sanitizeMessages($messages);
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$apiKey}",
-                'Content-Type'  => 'application/json',
-            ])->timeout(25)->post('https://api.groq.com/openai/v1/chat/completions', [
-                'model'       => self::GROQ_MODEL,
-                'messages'    => $messages,
-                'temperature' => 0.3,
-                'max_tokens'  => 1024,
-            ]);
 
-            if ($response->status() === 429) {
-                Log::info('ChatAssistant: Groq 429 rate limit reached. Falling back to llama-3.1-8b-instant');
+        // Daftar model fallback (dicoba urut jika 429)
+        $models = [
+            self::GROQ_MODEL,          // llama-3.3-70b-versatile (utama)
+            'llama-3.1-8b-instant',    // fallback cepat
+            'gemma2-9b-it',            // fallback ketiga
+        ];
+
+        try {
+            $lastResponse = null;
+
+            foreach ($models as $index => $model) {
+                if ($index > 0) {
+                    // Delay 8 detik sebelum mencoba model fallback
+                    Log::info("ChatAssistant: Groq 429 rate limit. Menunggu 8 detik lalu coba model: {$model}");
+                    sleep(8);
+                }
+
                 $response = Http::withHeaders([
                     'Authorization' => "Bearer {$apiKey}",
                     'Content-Type'  => 'application/json',
                 ])->timeout(25)->post('https://api.groq.com/openai/v1/chat/completions', [
-                    'model'       => 'llama-3.1-8b-instant',
+                    'model'       => $model,
                     'messages'    => $messages,
                     'temperature' => 0.3,
                     'max_tokens'  => 1024,
                 ]);
+
+                $lastResponse = $response;
+
+                if ($response->successful()) {
+                    return trim($response->json('choices.0.message.content') ?? '');
+                }
+
+                if ($response->status() !== 429) {
+                    // Error selain rate limit — tidak perlu coba model lain
+                    break;
+                }
             }
 
-            if ($response->successful()) {
-                return trim($response->json('choices.0.message.content') ?? '');
-            } else {
-                Log::channel('chat_errors')->error('[ChatAssistant] Groq API error', [
-                    'status'       => $response->status(),
-                    'body'         => $response->body(),
-                    'api_key_hint' => substr($apiKey, 0, 10) . '...',
-                ]);
-            }
+            // Semua model gagal
+            Log::channel('chat_errors')->error('[ChatAssistant] Groq API error', [
+                'status'       => $lastResponse?->status(),
+                'body'         => $lastResponse?->body(),
+                'api_key_hint' => substr($apiKey, 0, 10) . '...',
+            ]);
+
         } catch (\Exception $e) {
             Log::channel('chat_errors')->error('[ChatAssistant] Groq exception', [
                 'message'   => $e->getMessage(),
