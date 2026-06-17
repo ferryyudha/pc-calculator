@@ -44,6 +44,18 @@ export default function ChatWidget() {
         ...prev,
         { role: 'assistant', content: 'Maaf, gagal menghubungi server. Coba lagi.' },
       ])
+
+      // Catat error frontend ke server log (chat_errors.log)
+      try {
+        await api.post('/log-error', {
+          type:    'NetworkError',
+          message: err?.message || String(err),
+          detail:  err?.code || null,
+          url:     window.location.href,
+        })
+      } catch (_) {
+        // Abaikan jika log juga gagal (server offline, dll)
+      }
     } finally {
       setLoading(false)
     }

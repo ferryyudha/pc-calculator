@@ -46,6 +46,10 @@ class ChatAssistantService
 
             $response = $this->callGroq($messages, $apiKey);
             if (!$response) {
+                Log::channel('chat_errors')->error('[ChatAssistant] Groq tidak merespons, iterasi ke-' . $iterations, [
+                    'user_message' => $userMessage,
+                    'turn'         => $iterations,
+                ]);
                 return ['reply' => 'Maaf, terjadi kesalahan. Coba lagi sebentar.', 'error' => true];
             }
 
@@ -326,10 +330,17 @@ PROMPT;
             if ($response->successful()) {
                 return trim($response->json('choices.0.message.content') ?? '');
             } else {
-                Log::warning('ChatAssistant Groq error. Status: ' . $response->status() . ' Body: ' . $response->body());
+                Log::channel('chat_errors')->error('[ChatAssistant] Groq API error', [
+                    'status'       => $response->status(),
+                    'body'         => $response->body(),
+                    'api_key_hint' => substr($apiKey, 0, 10) . '...',
+                ]);
             }
         } catch (\Exception $e) {
-            Log::warning('ChatAssistant Groq exception: ' . $e->getMessage());
+            Log::channel('chat_errors')->error('[ChatAssistant] Groq exception', [
+                'message'   => $e->getMessage(),
+                'exception' => get_class($e),
+            ]);
         }
 
         return null;

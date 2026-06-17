@@ -127,6 +127,14 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        // Channel khusus untuk mencatat error chatbot (Groq API & frontend)
+        'chat_errors' => [
+            'driver'          => 'single',
+            'path'            => storage_path('logs/chat_errors.log'),
+            'level'           => 'debug',
+            'replace_placeholders' => true,
+        ],
+
     ],
 
 ];

@@ -38,4 +38,4 @@ Route::post('/recommend-build/tier/{tier}', [BuildController::class, 'recommendT
 
 use App\Http\Controllers\Api\ChatController;
 Route::post('/chat', [ChatController::class, 'send']);
-
+Route::post('/log-error', [ChatController::class, 'logFrontendError']);
