@@ -14,13 +14,15 @@ class ChatController extends Controller
     public function send(Request $request)
     {
         $request->validate([
-            'message' => 'required|string|max:500',
-            'history' => 'nullable|array',
+            'message'           => 'required|string|max:500',
+            'history'           => 'nullable|array',
+            'internal_messages' => 'nullable|array',
         ]);
 
         $result = $this->service->chat(
             $request->input('message'),
-            $request->input('history', [])
+            $request->input('history', []),
+            $request->input('internal_messages', [])
         );
 
         return response()->json($result);

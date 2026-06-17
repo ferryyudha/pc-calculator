@@ -6,6 +6,8 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState([])
   const [inputText, setInputText] = useState('')
   const [loading, setLoading] = useState(false)
+  // Menyimpan pesan internal (termasuk TOOL_RESULT) untuk dikirim ke backend di turn berikutnya
+  const [internalMessages, setInternalMessages] = useState([])
 
   const messagesEndRef = useRef(null)
 
@@ -32,13 +34,20 @@ export default function ChatWidget() {
     try {
       const response = await api.post('/chat', {
         message: text,
-        history: messages.slice(-6), // Kirim history SEBELUM pesan user saat ini, backend menambahkan sendiri
+        history: messages.slice(-6), // Fallback history untuk kompatibilitas
+        internal_messages: internalMessages, // Konteks penuh termasuk TOOL_RESULT
       })
 
+      const reply = response.data.reply || 'Maaf, terjadi kesalahan.'
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: response.data.reply || 'Maaf, terjadi kesalahan.' },
+        { role: 'assistant', content: reply },
       ])
+
+      // Simpan internal_messages untuk turn berikutnya
+      if (response.data.internal_messages?.length) {
+        setInternalMessages(response.data.internal_messages)
+      }
     } catch (err) {
       setMessages((prev) => [
         ...prev,

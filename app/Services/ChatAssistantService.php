@@ -25,19 +25,26 @@ class ChatAssistantService
     ) {
     }
 
-    public function chat(string $userMessage, array $history = []): array
+    public function chat(string $userMessage, array $history = [], array $internalMessages = []): array
     {
         $apiKey = env('GROQ_API_KEY') ?: config('services.groq.key');
 
-        $systemPrompt = $this->getSystemPrompt();
-
-        $messages = [
-            ['role' => 'system', 'content' => $systemPrompt],
-        ];
-
-        // Tambahkan history percakapan (maksimal 6 pesan terakhir)
-        foreach (array_slice($history, -6) as $h) {
-            $messages[] = ['role' => $h['role'], 'content' => $h['content']];
+        if (!empty($internalMessages)) {
+            // Lanjutkan dari sesi sebelumnya (berisi TOOL_RESULT dari turn sebelumnya)
+            $messages = $internalMessages;
+            // Pastikan system prompt tetap di posisi pertama
+            if (($messages[0]['role'] ?? '') !== 'system') {
+                array_unshift($messages, ['role' => 'system', 'content' => $this->getSystemPrompt()]);
+            }
+        } else {
+            $systemPrompt = $this->getSystemPrompt();
+            $messages = [
+                ['role' => 'system', 'content' => $systemPrompt],
+            ];
+            // Tambahkan history percakapan (maksimal 6 pesan terakhir)
+            foreach (array_slice($history, -6) as $h) {
+                $messages[] = ['role' => $h['role'], 'content' => $h['content']];
+            }
         }
 
         $messages[] = ['role' => 'user', 'content' => $userMessage];
@@ -52,7 +59,7 @@ class ChatAssistantService
                     'user_message' => $userMessage,
                     'turn' => $iterations,
                 ]);
-                return ['reply' => 'Maaf, terjadi kesalahan. Coba lagi sebentar.', 'error' => true];
+                return ['reply' => 'Maaf, terjadi kesalahan. Coba lagi sebentar.', 'error' => true, 'internal_messages' => $messages];
             }
 
             Log::info("ChatAssistant response turn {$iterations}: " . $response);
@@ -62,13 +69,16 @@ class ChatAssistantService
 
             if (empty($jsonBlocks)) {
                 // Jika tidak ada JSON valid, anggap ini jawaban final langsung
-                return ['reply' => $this->cleanReply($response), 'error' => false];
+                $messages[] = ['role' => 'assistant', 'content' => $response];
+                return ['reply' => $this->cleanReply($response), 'error' => false, 'internal_messages' => $this->stripSystemMessage($messages)];
             }
 
             // Cari apakah ada final_answer
             foreach ($jsonBlocks as $block) {
                 if (isset($block['action']) && $block['action'] === 'final_answer') {
-                    return ['reply' => $this->cleanReply($block['message'] ?? 'Baik.'), 'error' => false];
+                    $finalReply = $this->cleanReply($block['message'] ?? 'Baik.');
+                    $messages[] = ['role' => 'assistant', 'content' => $finalReply];
+                    return ['reply' => $finalReply, 'error' => false, 'internal_messages' => $this->stripSystemMessage($messages)];
                 }
             }
 
@@ -78,7 +88,8 @@ class ChatAssistantService
 
             foreach ($jsonBlocks as $block) {
                 $action = $block['action'] ?? '';
-                $isToolCall = ($action === 'tool_call');
+                // Beberapa model (mis. llama-4-scout) mengirim "tool_calls" (jamak) bukan "tool_call"
+                $isToolCall = in_array($action, ['tool_call', 'tool_calls', 'call_tool']);
                 $isDirectTool = in_array($action, ['search_cpu', 'search_gpu', 'search_ram', 'search_psu', 'search_motherboard', 'search_ssd', 'check_compatibility', 'get_fps_estimate', 'recommend_build', 'search_game']);
 
                 if ($isToolCall || $isDirectTool) {
@@ -110,7 +121,16 @@ class ChatAssistantService
             continue;
         }
 
-        return ['reply' => 'Maaf, terlalu banyak proses. Coba pertanyaan yang lebih spesifik.', 'error' => true];
+        return ['reply' => 'Maaf, terlalu banyak proses. Coba pertanyaan yang lebih spesifik.', 'error' => true, 'internal_messages' => $this->stripSystemMessage($messages)];
+    }
+
+    /**
+     * Hapus system message dari array messages sebelum dikirim ke client
+     * agar system prompt tidak terekspos dan tidak memenuhi payload.
+     */
+    private function stripSystemMessage(array $messages): array
+    {
+        return array_values(array_filter($messages, fn($m) => ($m['role'] ?? '') !== 'system'));
     }
 
     private function getSystemPrompt(): string
@@ -170,6 +190,11 @@ final, balas dengan JSON:
 
 PENTING:
 - DILARANG KERAS mengarang/merekomendasikan komponen PC, harga, atau spesifikasi secara manual dari ingatan Anda. Anda WAJIB memanggil tool untuk mendapatkan data nyata dari database toko.
+- DILARANG KERAS menulis teks status seperti "Mohon tunggu...", "Saya sedang memeriksa...", "Satu saat..." sebelum memanggil tool. Jika ingin memanggil tool, LANGSUNG balas dengan JSON tool call saja, tanpa teks apapun.
+- KOMPATIBILITAS: Jika user bertanya apakah komponen kompatibel (contoh: "kompatibel?", "cocok gak?", "bisa dipasang?"):
+  1. Ambil id CPU, GPU, Motherboard, RAM, dan PSU dari hasil TOOL_RESULT recommend_build atau search sebelumnya di history percakapan.
+  2. Panggil tool check_compatibility dengan id-id tersebut.
+  3. DILARANG mengarang jawaban kompatibilitas tanpa memanggil tool.
 - GANTI KOMPONEN (KHUSUS): Aturan ini HANYA berlaku jika user secara eksplisit meminta mengganti/mencari komponen alternatif (contoh: "ganti RAM-nya jadi Klev", "prosesornya mau Ryzen 5", "PSU-nya ganti", "RAM-nya stok gak ada mau ganti", "motherboard ganti B550"). TIDAK berlaku untuk rekomendasi rakitan lengkap.
   Jika kondisi ini terpenuhi:
   1. Gunakan tool search_cpu / search_gpu / search_ram / search_psu / search_motherboard / search_ssd dengan keyword komponen yang diminta.
@@ -262,34 +287,41 @@ PROMPT;
         }
 
         // Saring respons agar hemat token
+        // PENTING: id disertakan agar AI dapat memanggil check_compatibility setelah rekomendasi
         return [
             'cpu' => [
-                'name' => $res['build']['cpu']['name'] ?? '-',
+                'id'    => $res['build']['cpu']['id'] ?? null,
+                'name'  => $res['build']['cpu']['name'] ?? '-',
                 'price' => $res['build']['cpu']['price'] ?? 0,
             ],
             'gpu' => [
-                'name' => $res['build']['gpu']['name'] ?? '-',
+                'id'    => $res['build']['gpu']['id'] ?? null,
+                'name'  => $res['build']['gpu']['name'] ?? '-',
                 'price' => $res['build']['gpu']['price'] ?? 0,
             ],
             'motherboard' => [
-                'name' => $res['build']['motherboard']['name'] ?? '-',
+                'id'    => $res['build']['motherboard']['id'] ?? null,
+                'name'  => $res['build']['motherboard']['name'] ?? '-',
                 'price' => $res['build']['motherboard']['price'] ?? 0,
             ],
             'ram' => [
-                'name' => $res['build']['ram']['name'] ?? '-',
+                'id'    => $res['build']['ram']['id'] ?? null,
+                'name'  => $res['build']['ram']['name'] ?? '-',
                 'price' => $res['build']['ram']['price'] ?? 0,
             ],
             'ssd' => [
-                'name' => $res['build']['ssd']['name'] ?? '-',
+                'id'    => $res['build']['ssd']['id'] ?? null,
+                'name'  => $res['build']['ssd']['name'] ?? '-',
                 'price' => $res['build']['ssd']['price'] ?? 0,
             ],
             'psu' => [
-                'name' => $res['build']['psu']['name'] ?? '-',
+                'id'    => $res['build']['psu']['id'] ?? null,
+                'name'  => $res['build']['psu']['name'] ?? '-',
                 'price' => $res['build']['psu']['price'] ?? 0,
             ],
-            'total_price' => $res['total_price'] ?? 0,
+            'total_price'      => $res['total_price'] ?? 0,
             'remaining_budget' => $res['remaining_budget'] ?? 0,
-            'estimated_fps' => $res['estimated_fps'] ?? null,
+            'estimated_fps'    => $res['estimated_fps'] ?? null,
         ];
     }
 
