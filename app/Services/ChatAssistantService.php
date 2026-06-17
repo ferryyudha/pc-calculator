@@ -22,7 +22,8 @@ class ChatAssistantService
         private FpsService $fpsService,
         private PsuService $psuService,
         private BuildRecommendationService $buildService,
-    ) {}
+    ) {
+    }
 
     public function chat(string $userMessage, array $history = []): array
     {
@@ -49,7 +50,7 @@ class ChatAssistantService
             if (!$response) {
                 Log::channel('chat_errors')->error('[ChatAssistant] Groq tidak merespons, iterasi ke-' . $iterations, [
                     'user_message' => $userMessage,
-                    'turn'         => $iterations,
+                    'turn' => $iterations,
                 ]);
                 return ['reply' => 'Maaf, terjadi kesalahan. Coba lagi sebentar.', 'error' => true];
             }
@@ -81,7 +82,7 @@ class ChatAssistantService
                 $isDirectTool = in_array($action, ['search_cpu', 'search_gpu', 'search_ram', 'search_psu', 'search_motherboard', 'search_ssd', 'check_compatibility', 'get_fps_estimate', 'recommend_build', 'search_game']);
 
                 if ($isToolCall || $isDirectTool) {
-                    $toolName   = $isToolCall ? ($block['tool'] ?? null) : $action;
+                    $toolName = $isToolCall ? ($block['tool'] ?? null) : $action;
                     $toolParams = $block['params'] ?? [];
 
                     $toolResult = $this->executeTool($toolName, $toolParams);
@@ -93,7 +94,7 @@ class ChatAssistantService
             if ($toolCallsRun) {
                 $messages[] = ['role' => 'assistant', 'content' => $response];
                 $messages[] = [
-                    'role'    => 'user',
+                    'role' => 'user',
                     'content' => implode("\n\n", $toolResultsSummary),
                 ];
                 continue;
@@ -103,7 +104,7 @@ class ChatAssistantService
             // Minta model untuk membuat final_answer yang proper
             $messages[] = ['role' => 'assistant', 'content' => $response];
             $messages[] = [
-                'role'    => 'user',
+                'role' => 'user',
                 'content' => 'Tolong berikan jawaban final dalam format JSON: {"action":"final_answer","message":"..."}',
             ];
             continue;
@@ -198,34 +199,34 @@ PROMPT;
     private function executeTool(string $tool, array $params): mixed
     {
         return match ($tool) {
-            'search_cpu'          => $this->searchCpu($params),
-            'search_gpu'          => $this->searchGpu($params),
-            'search_ram'          => $this->searchRam($params),
-            'search_psu'          => $this->searchPsu($params),
-            'search_motherboard'  => $this->searchMotherboard($params),
-            'search_ssd'          => $this->searchSsd($params),
-            'search_game'         => $this->searchGame($params),
+            'search_cpu' => $this->searchCpu($params),
+            'search_gpu' => $this->searchGpu($params),
+            'search_ram' => $this->searchRam($params),
+            'search_psu' => $this->searchPsu($params),
+            'search_motherboard' => $this->searchMotherboard($params),
+            'search_ssd' => $this->searchSsd($params),
+            'search_game' => $this->searchGame($params),
             'check_compatibility' => $this->runCompatibilityCheck($params),
-            'get_fps_estimate'    => (isset($params['cpu_id'], $params['gpu_id'], $params['game_id']))
-                ? $this->fpsService->estimate(
-                    (int) $params['cpu_id'],
-                    (int) $params['gpu_id'],
-                    (int) $params['game_id'],
-                    $params['resolution'] ?? '1080p'
-                )
-                : ['error' => 'cpu_id, gpu_id, dan game_id wajib diisi untuk estimasi FPS.'],
-            'recommend_build'     => $this->runRecommendBuild($params),
-            default               => ['error' => "Unknown tool: {$tool}"],
+            'get_fps_estimate' => (isset($params['cpu_id'], $params['gpu_id'], $params['game_id']))
+            ? $this->fpsService->estimate(
+                (int) $params['cpu_id'],
+                (int) $params['gpu_id'],
+                (int) $params['game_id'],
+                $params['resolution'] ?? '1080p'
+            )
+            : ['error' => 'cpu_id, gpu_id, dan game_id wajib diisi untuk estimasi FPS.'],
+            'recommend_build' => $this->runRecommendBuild($params),
+            default => ['error' => "Unknown tool: {$tool}"],
         };
     }
 
     private function runCompatibilityCheck(array $params): array
     {
-        $cpu  = Cpu::find($params['cpu_id'] ?? null);
+        $cpu = Cpu::find($params['cpu_id'] ?? null);
         $mobo = Motherboard::find($params['motherboard_id'] ?? null);
-        $ram  = Ram::find($params['ram_id'] ?? null);
-        $gpu  = Gpu::find($params['gpu_id'] ?? null);
-        $psu  = Psu::find($params['psu_id'] ?? null);
+        $ram = Ram::find($params['ram_id'] ?? null);
+        $gpu = Gpu::find($params['gpu_id'] ?? null);
+        $psu = Psu::find($params['psu_id'] ?? null);
 
         if (!$cpu || !$mobo || !$ram || !$gpu || !$psu) {
             return [
@@ -239,15 +240,15 @@ PROMPT;
 
     private function runRecommendBuild(array $params): array
     {
-        $budget     = (int) ($params['budget'] ?? 0);
-        $game       = Game::find($params['game_id'] ?? null);
+        $budget = (int) ($params['budget'] ?? 0);
+        $game = Game::find($params['game_id'] ?? null);
         $resolution = $params['resolution'] ?? '1080p';
 
         if (!$game) {
             // Gunakan game acuan populer jika user tidak menyertakan game secara spesifik
-            $game = Game::where('name', 'like', '%GTA%')->first()
-                 ?: Game::where('weight_class', 'medium')->first()
-                 ?: Game::first();
+            $game = Game::where('games.name', 'like', '%GTA%')->first()
+                ?: Game::where('games.weight_class', 'medium')->first()
+                ?: Game::first();
         }
 
         if (!$game) {
@@ -263,32 +264,32 @@ PROMPT;
         // Saring respons agar hemat token
         return [
             'cpu' => [
-                'name'  => $res['build']['cpu']['name'] ?? '-',
+                'name' => $res['build']['cpu']['name'] ?? '-',
                 'price' => $res['build']['cpu']['price'] ?? 0,
             ],
             'gpu' => [
-                'name'  => $res['build']['gpu']['name'] ?? '-',
+                'name' => $res['build']['gpu']['name'] ?? '-',
                 'price' => $res['build']['gpu']['price'] ?? 0,
             ],
             'motherboard' => [
-                'name'  => $res['build']['motherboard']['name'] ?? '-',
+                'name' => $res['build']['motherboard']['name'] ?? '-',
                 'price' => $res['build']['motherboard']['price'] ?? 0,
             ],
             'ram' => [
-                'name'  => $res['build']['ram']['name'] ?? '-',
+                'name' => $res['build']['ram']['name'] ?? '-',
                 'price' => $res['build']['ram']['price'] ?? 0,
             ],
             'ssd' => [
-                'name'  => $res['build']['ssd']['name'] ?? '-',
+                'name' => $res['build']['ssd']['name'] ?? '-',
                 'price' => $res['build']['ssd']['price'] ?? 0,
             ],
             'psu' => [
-                'name'  => $res['build']['psu']['name'] ?? '-',
+                'name' => $res['build']['psu']['name'] ?? '-',
                 'price' => $res['build']['psu']['price'] ?? 0,
             ],
-            'total_price'      => $res['total_price'] ?? 0,
+            'total_price' => $res['total_price'] ?? 0,
             'remaining_budget' => $res['remaining_budget'] ?? 0,
-            'estimated_fps'    => $res['estimated_fps'] ?? null,
+            'estimated_fps' => $res['estimated_fps'] ?? null,
         ];
     }
 
@@ -296,12 +297,12 @@ PROMPT;
     {
         $query = Cpu::query();
         if (!empty($params['keyword'])) {
-            $query->where('name', 'like', '%' . $params['keyword'] . '%');
+            $query->where('cpus.name', 'like', '%' . $params['keyword'] . '%');
         }
         if (!empty($params['max_price'])) {
-            $query->where('price', '<=', $params['max_price']);
+            $query->where('cpus.price', '<=', $params['max_price']);
         }
-        return $query->orderBy('price', 'desc')->limit(5)
+        return $query->orderBy('cpus.price', 'desc')->limit(5)
             ->get(['id', 'name', 'socket', 'cores', 'threads', 'tdp', 'price'])
             ->toArray();
     }
@@ -310,12 +311,12 @@ PROMPT;
     {
         $query = Gpu::query();
         if (!empty($params['keyword'])) {
-            $query->where('name', 'like', '%' . $params['keyword'] . '%');
+            $query->where('gpus.name', 'like', '%' . $params['keyword'] . '%');
         }
         if (!empty($params['max_price'])) {
-            $query->where('price', '<=', $params['max_price']);
+            $query->where('gpus.price', '<=', $params['max_price']);
         }
-        return $query->orderBy('price', 'desc')->limit(5)
+        return $query->orderBy('gpus.price', 'desc')->limit(5)
             ->get(['id', 'name', 'vram', 'power_draw', 'price'])
             ->toArray();
     }
@@ -324,12 +325,12 @@ PROMPT;
     {
         $query = Ram::query();
         if (!empty($params['keyword'])) {
-            $query->where('name', 'like', '%' . $params['keyword'] . '%');
+            $query->where('rams.name', 'like', '%' . $params['keyword'] . '%');
         }
         if (!empty($params['max_price'])) {
-            $query->where('price', '<=', $params['max_price']);
+            $query->where('rams.price', '<=', $params['max_price']);
         }
-        return $query->orderBy('price', 'desc')->limit(5)
+        return $query->orderBy('rams.price', 'desc')->limit(5)
             ->get(['id', 'name', 'ddr_version', 'capacity', 'speed', 'sticks', 'price'])
             ->toArray();
     }
@@ -338,19 +339,19 @@ PROMPT;
     {
         $query = Psu::query();
         if (!empty($params['keyword'])) {
-            $query->where('name', 'like', '%' . $params['keyword'] . '%');
+            $query->where('psus.name', 'like', '%' . $params['keyword'] . '%');
         }
         if (!empty($params['max_price'])) {
-            $query->where('price', '<=', $params['max_price']);
+            $query->where('psus.price', '<=', $params['max_price']);
         }
-        return $query->orderBy('price', 'desc')->limit(5)
+        return $query->orderBy('psus.price', 'desc')->limit(5)
             ->get(['id', 'name', 'watt', 'certification', 'price'])
             ->toArray();
     }
 
     private function searchGame(array $params): array
     {
-        return Game::where('name', 'like', '%' . ($params['keyword'] ?? '') . '%')
+        return Game::where('games.name', 'like', '%' . ($params['keyword'] ?? '') . '%')
             ->limit(5)
             ->get(['id', 'name', 'weight_class'])
             ->toArray();
@@ -360,12 +361,12 @@ PROMPT;
     {
         $query = Motherboard::query();
         if (!empty($params['keyword'])) {
-            $query->where('name', 'like', '%' . $params['keyword'] . '%');
+            $query->where('motherboards.name', 'like', '%' . $params['keyword'] . '%');
         }
         if (!empty($params['max_price'])) {
-            $query->where('price', '<=', $params['max_price']);
+            $query->where('motherboards.price', '<=', $params['max_price']);
         }
-        return $query->orderBy('price', 'desc')->limit(5)
+        return $query->orderBy('motherboards.price', 'desc')->limit(5)
             ->get(['id', 'name', 'socket', 'chipset', 'ram_type', 'max_ram', 'price'])
             ->toArray();
     }
@@ -374,12 +375,12 @@ PROMPT;
     {
         $query = Ssd::query();
         if (!empty($params['keyword'])) {
-            $query->where('name', 'like', '%' . $params['keyword'] . '%');
+            $query->where('ssds.name', 'like', '%' . $params['keyword'] . '%');
         }
         if (!empty($params['max_price'])) {
-            $query->where('price', '<=', $params['max_price']);
+            $query->where('ssds.price', '<=', $params['max_price']);
         }
-        return $query->orderBy('price', 'desc')->limit(5)
+        return $query->orderBy('ssds.price', 'desc')->limit(5)
             ->get(['id', 'name', 'type', 'capacity', 'power_draw', 'price'])
             ->toArray();
     }
@@ -400,20 +401,20 @@ PROMPT;
 
             foreach ($models as $index => $model) {
                 if ($index > 0) {
-                    // Delay 8 detik sebelum mencoba model fallback
-                    Log::info("ChatAssistant: Groq 429 rate limit. Menunggu 8 detik lalu coba model: {$model}");
-                    sleep(8);
+                    // Delay singkat sebelum mencoba model fallback
+                    Log::info("ChatAssistant: Groq 429 rate limit. Menunggu 2 detik lalu coba model: {$model}");
+                    sleep(2);
                 }
 
                 $response = Http::withHeaders([
                     'Authorization' => "Bearer {$apiKey}",
-                    'Content-Type'  => 'application/json',
-                ])->timeout(25)->post('https://api.groq.com/openai/v1/chat/completions', [
-                    'model'       => $model,
-                    'messages'    => $messages,
-                    'temperature' => 0.3,
-                    'max_tokens'  => 1024,
-                ]);
+                    'Content-Type' => 'application/json',
+                ])->connectTimeout(5)->timeout(8)->post('https://api.groq.com/openai/v1/chat/completions', [
+                            'model' => $model,
+                            'messages' => $messages,
+                            'temperature' => 0.3,
+                            'max_tokens' => 1024,
+                        ]);
 
                 $lastResponse = $response;
 
@@ -429,14 +430,14 @@ PROMPT;
 
             // Semua model gagal
             Log::channel('chat_errors')->error('[ChatAssistant] Groq API error', [
-                'status'       => $lastResponse?->status(),
-                'body'         => $lastResponse?->body(),
+                'status' => $lastResponse?->status(),
+                'body' => $lastResponse?->body(),
                 'api_key_hint' => substr($apiKey, 0, 10) . '...',
             ]);
 
         } catch (\Exception $e) {
             Log::channel('chat_errors')->error('[ChatAssistant] Groq exception', [
-                'message'   => $e->getMessage(),
+                'message' => $e->getMessage(),
                 'exception' => get_class($e),
             ]);
         }
