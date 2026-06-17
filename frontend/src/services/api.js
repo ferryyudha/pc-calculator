@@ -7,7 +7,7 @@ export const BACKEND_URL = (window.location.hostname === 'localhost' || window.l
 const api = axios.create({
   baseURL: `${BACKEND_URL}/api`,
   headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-  timeout: 15000,
+  timeout: 30000,
 })
 
 // Interceptor: bongkar envelope { success, data } dari setiap response API
