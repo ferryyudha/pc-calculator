@@ -32,7 +32,7 @@ export default function ChatWidget() {
     try {
       const response = await api.post('/chat', {
         message: text,
-        history: newMessages.slice(-6),
+        history: messages.slice(-6), // Kirim history SEBELUM pesan user saat ini, backend menambahkan sendiri
       })
 
       setMessages((prev) => [
