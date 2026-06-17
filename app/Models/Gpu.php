@@ -8,13 +8,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Gpu extends Model
 {
     protected $fillable = [
-        'name', 'brand', 'vram', 'memory_type', 'power_draw', 'price', 'image_category',
+        'name', 'brand', 'vram', 'memory_type', 'power_draw', 'price', 'image_category', 'min_recommended_psu',
     ];
 
     protected $casts = [
-        'vram'       => 'integer',
-        'power_draw' => 'integer',
-        'price'      => 'integer',
+        'vram'                => 'integer',
+        'power_draw'          => 'integer',
+        'price'               => 'integer',
+        'min_recommended_psu' => 'integer',
     ];
 
     public function benchmarks(): HasMany

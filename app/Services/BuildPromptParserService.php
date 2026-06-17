@@ -49,27 +49,13 @@ Example output:
 }
 PROMPT;
 
-        $response = Http::withHeaders([
-            'Authorization' => "Bearer {$apiKey}",
-            'Content-Type'  => 'application/json',
-        ])->timeout(20)->post('https://api.groq.com/openai/v1/chat/completions', [
-            'model'           => self::GROQ_MODEL,
-            'messages'        => [
-                ['role' => 'system', 'content' => $systemPrompt],
-                ['role' => 'user', 'content' => $prompt],
-            ],
-            'temperature'     => 0.1,
-            'max_tokens'      => 512,
-            'response_format' => ['type' => 'json_object'],
-        ]);
-
-        if ($response->status() === 429) {
-            \Illuminate\Support\Facades\Log::info('BuildPromptParser: Groq 429 rate limit reached. Falling back to llama-3.1-8b-instant');
+        $response = null;
+        try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$apiKey}",
                 'Content-Type'  => 'application/json',
-            ])->timeout(20)->post('https://api.groq.com/openai/v1/chat/completions', [
-                'model'           => 'llama-3.1-8b-instant',
+            ])->connectTimeout(5)->timeout(10)->post('https://api.groq.com/openai/v1/chat/completions', [
+                'model'           => self::GROQ_MODEL,
                 'messages'        => [
                     ['role' => 'system', 'content' => $systemPrompt],
                     ['role' => 'user', 'content' => $prompt],
@@ -78,16 +64,43 @@ PROMPT;
                 'max_tokens'      => 512,
                 'response_format' => ['type' => 'json_object'],
             ]);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            \Illuminate\Support\Facades\Log::warning('BuildPromptParser: Primary model connection failed or timed out: ' . $e->getMessage());
         }
 
-        if ($response->successful()) {
+        if (!$response || $response->status() === 429) {
+            $reason = !$response ? 'failure/timeout' : 'Groq 429 rate limit';
+            \Illuminate\Support\Facades\Log::info("BuildPromptParser: {$reason} reached. Falling back to llama-3.1-8b-instant");
+            try {
+                $response = Http::withHeaders([
+                    'Authorization' => "Bearer {$apiKey}",
+                    'Content-Type'  => 'application/json',
+                ])->connectTimeout(5)->timeout(10)->post('https://api.groq.com/openai/v1/chat/completions', [
+                    'model'           => 'llama-3.1-8b-instant',
+                    'messages'        => [
+                        ['role' => 'system', 'content' => $systemPrompt],
+                        ['role' => 'user', 'content' => $prompt],
+                    ],
+                    'temperature'     => 0.1,
+                    'max_tokens'      => 512,
+                    'response_format' => ['type' => 'json_object'],
+                ]);
+            } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                \Illuminate\Support\Facades\Log::error('BuildPromptParser: Fallback model connection failed or timed out: ' . $e->getMessage());
+                $response = null;
+            }
+        }
+
+        if ($response && $response->successful()) {
             $content = $response->json('choices.0.message.content');
             $decoded = json_decode($content, true);
             if (json_last_error() === JSON_ERROR_NONE) {
                 return $decoded;
             }
         } else {
-            \Illuminate\Support\Facades\Log::error('Groq API call failed. Status: ' . $response->status() . ' Body: ' . $response->body() . ' API Key starts with: ' . substr($apiKey, 0, 8));
+            $status = $response ? $response->status() : 'No Response';
+            $body = $response ? $response->body() : 'No Body';
+            \Illuminate\Support\Facades\Log::error('Groq API call failed. Status: ' . $status . ' Body: ' . $body . ' API Key starts with: ' . substr($apiKey, 0, 8));
         }
 
         // Fallback jika AI gagal

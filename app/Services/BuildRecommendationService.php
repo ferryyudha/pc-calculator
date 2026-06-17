@@ -33,10 +33,11 @@ class BuildRecommendationService
 {
     private const GPU_BUDGET_RATIO = 0.45;
     private const CPU_BUDGET_RATIO = 0.25;
-    private const PSU_OVERHEAD_W = 43;    // Tambahan overhead untuk menentukan kapasitas PSU
 
-    public function __construct(private FpsService $fpsService)
-    {
+    public function __construct(
+        private FpsService $fpsService,
+        private PsuRequirementCalculator $psuCalculator
+    ) {
     }
 
     public function recommend(int $budget, Game $game, string $resolution): array|null
@@ -84,8 +85,7 @@ class BuildRecommendationService
                     continue;  // skip jika tidak ada SSD di database
 
                 // Langkah 5: Hitung kebutuhan watt PSU
-                $calculatedPsu = (int) ceil((($cpu->tdp + $gpu->power_draw) * 1.4) + 120);
-                $psuNeeded = max($calculatedPsu, $gpu->min_recommended_psu ?? 0);
+                $psuNeeded = $this->psuCalculator->calculate($cpu, $gpu);
                 $psu = Psu::where('watt', '>=', $psuNeeded)
                     ->orderBy('watt', 'asc')
                     ->first();

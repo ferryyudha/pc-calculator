@@ -421,13 +421,11 @@ PROMPT;
     {
         $messages = $this->sanitizeMessages($messages);
 
-        // Daftar model fallback (dicoba urut jika 429)
-        // Sengaja memilih model dari family berbeda agar rate limit tidak cascade
+        // Daftar model fallback (dicoba urut jika 429 atau error)
         $models = [
-            self::GROQ_MODEL,                              // llama-3.3-70b-versatile (utama)
-            'meta-llama/llama-4-scout-17b-16e-instruct',  // fallback 1: Llama 4 (family berbeda)
-            'qwen/qwen3-32b',                              // fallback 2: Qwen (provider berbeda, rate limit terpisah)
-            'llama-3.1-8b-instant',                        // fallback 3: ringan dan cepat
+            self::GROQ_MODEL,                             // llama-3.3-70b-versatile (utama)
+            'meta-llama/llama-4-scout-17b-16e-instruct', // fallback 1
+            'llama-3.1-8b-instant',                       // fallback 2
         ];
 
         try {
@@ -435,37 +433,40 @@ PROMPT;
 
             foreach ($models as $index => $model) {
                 if ($index > 0) {
-                    // Exponential backoff: 3s, 6s, 9s
-                    $waitSeconds = $index * 3;
-                    Log::info("ChatAssistant: Groq 429 rate limit. Menunggu {$waitSeconds} detik lalu coba model: {$model}");
+                    $waitSeconds = 2;
+                    Log::info("ChatAssistant: Groq 429 rate limit or failure. Menunggu {$waitSeconds} detik lalu coba model: {$model}");
                     sleep($waitSeconds);
                 }
 
-                $response = Http::withHeaders([
-                    'Authorization' => "Bearer {$apiKey}",
-                    'Content-Type' => 'application/json',
-                ])->connectTimeout(5)->timeout(30)->post('https://api.groq.com/openai/v1/chat/completions', [
-                            'model' => $model,
-                            'messages' => $messages,
-                            'temperature' => 0.3,
-                            'max_tokens' => 1024,
-                        ]);
+                try {
+                    $response = Http::withHeaders([
+                        'Authorization' => "Bearer {$apiKey}",
+                        'Content-Type' => 'application/json',
+                    ])->connectTimeout(5)->timeout(8)->post('https://api.groq.com/openai/v1/chat/completions', [
+                        'model' => $model,
+                        'messages' => $messages,
+                        'temperature' => 0.3,
+                        'max_tokens' => 1024,
+                    ]);
 
-                $lastResponse = $response;
+                    $lastResponse = $response;
 
-                if ($response->successful()) {
-                    Log::info("ChatAssistant: Berhasil dengan model: {$model}");
-                    return trim($response->json('choices.0.message.content') ?? '');
+                    if ($response->successful()) {
+                        Log::info("ChatAssistant: Berhasil dengan model: {$model}");
+                        return trim($response->json('choices.0.message.content') ?? '');
+                    }
+
+                    $statusCode = $response->status();
+                    // Lanjut ke model berikutnya jika 429 (rate limit) atau 400/404/503 (model error)
+                    if (!in_array($statusCode, [429, 400, 404, 503])) {
+                        // Error tidak terduga — tidak perlu coba model lain
+                        break;
+                    }
+
+                    Log::warning("ChatAssistant: Model {$model} gagal (HTTP {$statusCode}), mencoba model berikutnya.");
+                } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                    Log::warning("ChatAssistant: Model {$model} mengalami timeout/koneksi gagal: " . $e->getMessage() . ", mencoba model berikutnya.");
                 }
-
-                $statusCode = $response->status();
-                // Lanjut ke model berikutnya jika 429 (rate limit) atau 400/404/503 (model error)
-                if (!in_array($statusCode, [429, 400, 404, 503])) {
-                    // Error tidak terduga — tidak perlu coba model lain
-                    break;
-                }
-
-                Log::warning("ChatAssistant: Model {$model} gagal (HTTP {$statusCode}), mencoba model berikutnya.");
             }
 
             // Semua model gagal

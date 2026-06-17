@@ -26,6 +26,10 @@ use App\Models\Psu;
  */
 class CompatibilityService
 {
+    public function __construct(private PsuRequirementCalculator $psuCalculator)
+    {
+    }
+
     public function check(Cpu $cpu, Motherboard $mobo, Ram $ram, Gpu $gpu, Psu $psu): array
     {
         $checks = [];
@@ -64,9 +68,7 @@ class CompatibilityService
         ];
 
         // Check 4: PSU watt sufficiency
-        // Required watt = (cpu.tdp + gpu.power_draw) × 1.2 (20% headroom untuk safety)
-        // MAINTENANCE NOTE: Ubah faktor 1.2 jika ingin headroom yang berbeda
-        $requiredWatt = (int) ceil(($cpu->tdp + $gpu->power_draw) * 1.2);
+        $requiredWatt = $this->psuCalculator->calculate($cpu, $gpu);
         $psuSufficient = $psu->watt >= $requiredWatt;
         $checks[] = [
             'name'    => 'PSU Watt',
