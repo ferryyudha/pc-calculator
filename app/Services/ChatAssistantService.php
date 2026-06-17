@@ -60,13 +60,13 @@ class ChatAssistantService
 
             if (empty($jsonBlocks)) {
                 // Jika tidak ada JSON valid, anggap ini jawaban final langsung
-                return ['reply' => $response, 'error' => false];
+                return ['reply' => $this->cleanReply($response), 'error' => false];
             }
 
             // Cari apakah ada final_answer
             foreach ($jsonBlocks as $block) {
                 if (isset($block['action']) && $block['action'] === 'final_answer') {
-                    return ['reply' => $block['message'] ?? 'Baik.', 'error' => false];
+                    return ['reply' => $this->cleanReply($block['message'] ?? 'Baik.'), 'error' => false];
                 }
             }
 
@@ -354,7 +354,7 @@ PROMPT;
         $models = [
             self::GROQ_MODEL,          // llama-3.3-70b-versatile (utama)
             'llama-3.1-8b-instant',    // fallback cepat
-            'gemma2-9b-it',            // fallback ketiga
+            'mixtral-8x7b-32768',      // fallback ketiga
         ];
 
         try {
@@ -492,5 +492,48 @@ PROMPT;
             }
         }
         return $sanitized;
+    }
+
+    private function cleanReply(string $reply): string
+    {
+        // List of common phrases to remove if they shouldn't be there
+        $phrasesToRemove = [
+            'Silakan pilih nomor yang Anda inginkan.',
+            'Silakan pilih nomor.',
+            'Pilih nomor yang Anda inginkan.',
+            'Silakan pilih nomor rakitan yang Anda inginkan.',
+        ];
+
+        $lowerReply = strtolower($reply);
+
+        // Check if it looks like a full build recommendation or lacks a numbered list
+        $hasComponentLabels = false;
+        // Check for multiple keywords indicating a full build recommendation
+        $componentsFound = 0;
+        $keywords = ['prosesor', 'cpu', 'vga', 'gpu', 'mainboard', 'motherboard', 'ram', 'ssd', 'psu', 'power supply'];
+        foreach ($keywords as $kw) {
+            if (str_contains($lowerReply, $kw)) {
+                $componentsFound++;
+            }
+        }
+        // If there are at least 3 distinct component keywords, it's likely a build list
+        if ($componentsFound >= 3) {
+            $hasComponentLabels = true;
+        }
+
+        // Check if it lacks a numbered list (e.g., "1. " or "2. " or "1) " at the start of a line)
+        // We look for a line starting with a digit 1-5 followed by a dot or parenthesis, like: 1. or 2)
+        $hasNumberedList = (bool) preg_match('/^\s*[1-5][\.\)]\s+/m', $reply);
+
+        if ($hasComponentLabels || !$hasNumberedList) {
+            foreach ($phrasesToRemove as $phrase) {
+                // Remove the phrase (case-insensitive and handle surrounding whitespace/newlines)
+                $pattern = '/\s*' . preg_quote($phrase, '/') . '\s*/i';
+                $reply = preg_replace($pattern, ' ', $reply);
+            }
+            $reply = trim($reply);
+        }
+
+        return $reply;
     }
 }
