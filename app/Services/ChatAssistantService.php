@@ -190,6 +190,9 @@ Tools yang tersedia:
 10. search_game - cari game berdasarkan nama untuk mendapatkan game_id
     params: { "keyword": "string" }
 
+11. calculate_psu - hitung kebutuhan watt PSU berdasarkan CPU, GPU, storage, dan fan.
+    params: { "cpu_id": int, "gpu_id": int, "ssd_count": int opsional, "hdd_count": int opsional, "fans": int opsional }
+
 Setelah mendapat hasil tool (akan dikirim sebagai "TOOL_RESULT"), gunakan
 data tersebut untuk menjawab pertanyaan user secara natural. Untuk jawaban
 final, balas dengan JSON:
@@ -200,11 +203,15 @@ final, balas dengan JSON:
 
 PENTING:
 - DILARANG KERAS mengarang/merekomendasikan komponen PC, harga, atau spesifikasi secara manual dari ingatan Anda. Anda WAJIB memanggil tool untuk mendapatkan data nyata dari database toko.
+- DILARANG menampilkan ID database (seperti game_id, id game, id CPU, id GPU, id RAM, id PSU, id SSD, dll. contoh: (id: 1) atau id: 1) kepada user dalam jawaban Anda. Cukup gunakan nama game atau nama komponen saja.
 - DILARANG KERAS menulis teks status seperti "Mohon tunggu...", "Saya sedang memeriksa...", "Satu saat..." sebelum memanggil tool. Jika ingin memanggil tool, LANGSUNG balas dengan JSON tool call saja, tanpa teks apapun.
 - KOMPATIBILITAS: Jika user bertanya apakah komponen kompatibel (contoh: "kompatibel?", "cocok gak?", "bisa dipasang?"):
   1. Ambil id CPU, GPU, Motherboard, RAM, dan PSU dari hasil TOOL_RESULT recommend_build atau search sebelumnya di history percakapan.
   2. Panggil tool check_compatibility dengan id-id tersebut.
   3. DILARANG mengarang jawaban kompatibilitas tanpa memanggil tool.
+- KALKULATOR PSU (calculate_psu): Jika user menanyakan apakah asisten bisa menghitung kebutuhan watt PSU, atau meminta menghitung kebutuhan watt PSU untuk komponen tertentu:
+  1. Jika user tidak menyebutkan CPU/GPU spesifik, jelaskan bahwa Anda bisa membantu menghitungnya, lalu minta user untuk menyebutkan model CPU dan GPU yang ingin mereka gunakan.
+  2. Jika user menyebutkan CPU dan GPU spesifik (atau jika ID CPU dan GPU sudah ditemukan dari history/TOOL_RESULT sebelumnya), panggil tool calculate_psu untuk mendapatkan kalkulasi watt PSU dan rekomendasi unit PSU yang cocok. DILARANG mengarang watt PSU secara manual tanpa memanggil tool.
 - GANTI KOMPONEN (KHUSUS): Aturan ini HANYA berlaku jika user secara eksplisit meminta mengganti/mencari komponen alternatif (contoh: "ganti RAM-nya jadi Klev", "prosesornya mau Ryzen 5", "PSU-nya ganti", "RAM-nya stok gak ada mau ganti", "motherboard ganti B550"). TIDAK berlaku untuk rekomendasi rakitan lengkap.
   Jika kondisi ini terpenuhi, gunakan tool search_cpu / search_gpu / search_ram / search_psu / search_motherboard / search_ssd dengan keyword komponen yang diminta, lalu:
 
@@ -265,8 +272,33 @@ PROMPT;
             )
             : ['error' => 'cpu_id, gpu_id, dan game_id wajib diisi untuk estimasi FPS.'],
             'recommend_build' => $this->runRecommendBuild($params),
+            'calculate_psu' => (isset($params['cpu_id'], $params['gpu_id']))
+            ? $this->runPsuCalculation($params)
+            : ['error' => 'cpu_id dan gpu_id wajib diisi untuk kalkulasi PSU.'],
             default => ['error' => "Unknown tool: {$tool}"],
         };
+    }
+
+    private function runPsuCalculation(array $params): array
+    {
+        $cpu = Cpu::find($params['cpu_id'] ?? null);
+        $gpu = Gpu::find($params['gpu_id'] ?? null);
+
+        if (!$cpu || !$gpu) {
+            return [
+                'error' => 'CPU atau GPU tidak ditemukan di database. Pastikan menyertakan ID CPU dan GPU yang valid.'
+            ];
+        }
+
+        return $this->psuService->calculate(
+            $cpu,
+            $gpu,
+            [], // ssdIds
+            [], // hddIds
+            (int) ($params['ssd_count'] ?? 1),
+            (int) ($params['hdd_count'] ?? 0),
+            (int) ($params['fans'] ?? 3)
+        );
     }
 
     private function runCompatibilityCheck(array $params): array
@@ -609,6 +641,10 @@ PROMPT;
 
     private function cleanReply(string $reply): string
     {
+        // Strip database ID tags from reply (e.g. "Valorant (id: 1)" becomes "Valorant")
+        $reply = preg_replace('/\s*\(id:\s*\d+\)/i', '', $reply);
+        $reply = preg_replace('/\s*\b(game_|cpu_|gpu_|ram_|psu_|ssd_)?id:\s*\d+/i', '', $reply);
+
         // List of common phrases to remove if they shouldn't be there
         $phrasesToRemove = [
             'Silakan pilih nomor yang Anda inginkan.',

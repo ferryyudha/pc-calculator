@@ -15,6 +15,14 @@ class Game extends Model
         'min_vram' => 'integer',
     ];
 
+    /**
+     * Accessor untuk nama game untuk membersihkan pola (id: X).
+     */
+    public function getNameAttribute($value)
+    {
+        return preg_replace('/\s*\(id:\s*\d+\)/i', '', $value);
+    }
+
     public function benchmarks(): HasMany
     {
         return $this->hasMany(Benchmark::class);
