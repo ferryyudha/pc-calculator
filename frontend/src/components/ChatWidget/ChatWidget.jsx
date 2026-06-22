@@ -35,11 +35,15 @@ export default function ChatWidget() {
       const activeBuildStr = localStorage.getItem('active_build')
       const activeBuild = activeBuildStr ? JSON.parse(activeBuildStr) : null
 
+      const pageContextStr = localStorage.getItem('active_page_context')
+      const activePageContext = pageContextStr ? JSON.parse(pageContextStr) : null
+
       const response = await api.post('/chat', {
         message: text,
-        history: messages.slice(-6), // Fallback history untuk kompatibilitas
-        internal_messages: internalMessages, // Konteks penuh termasuk TOOL_RESULT
+        history: messages.slice(-6),
+        internal_messages: internalMessages,
         active_build: activeBuild,
+        active_page_context: activePageContext,
       })
 
       const reply = response.data.reply || 'Maaf, terjadi kesalahan.'

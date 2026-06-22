@@ -58,6 +58,32 @@ export default function BuildRecommendation() {
     }
   }, [result])
 
+  // Sinkronisasi form + hasil ke active_page_context agar Chat AI bisa membacanya
+  useEffect(() => {
+    const contextData = {
+      page: 'build_recommendation',
+      data: {
+        budget: form.budget || null,
+        game_id: form.game_id || null,
+        resolution: form.resolution || null,
+        ai_prompt: aiPrompt || null,
+      },
+      result: result ? {
+        total_price: result.total_price,
+        components: result.build ? Object.fromEntries(
+          Object.entries(result.build).map(([type, comp]) => [
+            type,
+            { id: comp.id, name: comp.name, price: comp.price }
+          ])
+        ) : null,
+      } : null,
+    }
+    localStorage.setItem('active_page_context', JSON.stringify(contextData))
+
+    // Bersihkan saat halaman ditinggalkan
+    return () => { localStorage.removeItem('active_page_context') }
+  }, [form.budget, form.game_id, form.resolution, aiPrompt, result])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true); setResult(null); setError(null); setDetectedInfo(null)

@@ -21,7 +21,33 @@ export default function Compatibility() {
         motherboards: moboRes.data.data, rams: ramRes.data.data, psus: psuRes.data.data,
       })
     }).finally(() => setFetching(false))
+
+    // Bersihkan context saat halaman ditinggalkan
+    return () => { localStorage.removeItem('active_page_context') }
   }, [])
+
+  // Sinkronisasi pilihan form ke localStorage agar Chat AI bisa membacanya
+  useEffect(() => {
+    const hasAny = Object.values(form).some(Boolean)
+    if (hasAny) {
+      localStorage.setItem('active_page_context', JSON.stringify({
+        page: 'compatibility_checker',
+        data: {
+          cpu_id: form.cpu_id || null,
+          gpu_id: form.gpu_id || null,
+          motherboard_id: form.motherboard_id || null,
+          ram_id: form.ram_id || null,
+          psu_id: form.psu_id || null,
+        },
+        result: result ? {
+          compatible: result.compatible,
+          checks: result.checks?.map(c => ({ name: c.name, passed: c.passed, message: c.message })),
+        } : null,
+      }))
+    } else {
+      localStorage.removeItem('active_page_context')
+    }
+  }, [form.cpu_id, form.gpu_id, form.motherboard_id, form.ram_id, form.psu_id, result])
 
   const set = (key) => (val) => setForm((f) => ({ ...f, [key]: val }))
 

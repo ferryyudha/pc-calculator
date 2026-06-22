@@ -25,7 +25,7 @@ class ChatAssistantService
     ) {
     }
 
-    public function chat(string $userMessage, array $history = [], array $internalMessages = [], ?array $activeBuild = null): array
+    public function chat(string $userMessage, array $history = [], array $internalMessages = [], ?array $activeBuild = null, ?array $activePageContext = null): array
     {
         $apiKey = env('GROQ_API_KEY') ?: config('services.groq.key');
 
@@ -34,10 +34,10 @@ class ChatAssistantService
             $messages = $internalMessages;
             // Pastikan system prompt tetap di posisi pertama
             if (($messages[0]['role'] ?? '') !== 'system') {
-                array_unshift($messages, ['role' => 'system', 'content' => $this->getSystemPrompt($activeBuild)]);
+                array_unshift($messages, ['role' => 'system', 'content' => $this->getSystemPrompt($activeBuild, $activePageContext)]);
             }
         } else {
-            $systemPrompt = $this->getSystemPrompt($activeBuild);
+            $systemPrompt = $this->getSystemPrompt($activeBuild, $activePageContext);
             $messages = [
                 ['role' => 'system', 'content' => $systemPrompt],
             ];
@@ -141,7 +141,9 @@ class ChatAssistantService
     private function stripSystemMessage(array $messages): array
     {
         return array_values(array_filter($messages, fn($m) => ($m['role'] ?? '') !== 'system'));
-    }    private function getSystemPrompt(?array $activeBuild = null): string
+    }
+
+    private function getSystemPrompt(?array $activeBuild = null, ?array $activePageContext = null): string
     {
         $prompt = <<<PROMPT
 Kamu adalah asisten AI untuk toko komputer "PC Calculator". Kamu membantu
@@ -263,6 +265,149 @@ PROMPT;
             $prompt .= "1. Jika user bertanya tentang kompatibilitas rakitan ini, atau ingin mengecek watt PSU untuk rakitan ini, atau ingin mengganti salah satu komponen dari rakitan ini, gunakan ID komponen di atas untuk memanggil tool check_compatibility, calculate_psu, atau tool pencarian.\n";
             $prompt .= "2. Akui spesifikasi rakitan di atas jika user merujuk pada 'rakitan ini', 'PC saya', atau 'rekomendasi tadi'.\n";
             $prompt .= "3. Jika user meminta untuk 'melihat', 'membaca', atau menanyakan apakah Anda bisa melihat rakitan yang sedang mereka buat/tampilkan di layar (contoh: 'bisa lihat rekomendasinya?', 'lihat PC saya', 'baca rakitan saya'), JANGAN panggil tool recommend_build. Cukup jawab secara langsung dengan menyebutkan detail komponen rakitan aktif di atas.\n";
+        }
+
+        // Inject page context — konteks halaman yang sedang dibuka user
+        if ($activePageContext && isset($activePageContext['page'], $activePageContext['data'])) {
+            $page = $activePageContext['page'];
+            $data = $activePageContext['data'];
+            $prompt .= "\n\n";
+
+            if ($page === 'psu_calculator') {
+                $cpu = Cpu::find($data['cpu_id'] ?? null);
+                $gpu = Gpu::find($data['gpu_id'] ?? null);
+                $prompt .= "KONTEKS HALAMAN — User saat ini berada di halaman **Kalkulator PSU**.\n";
+                if ($cpu) {
+                    $prompt .= "- CPU yang dipilih: **{$cpu->name}** (ID: {$cpu->id}, TDP: {$cpu->tdp}W)\n";
+                }
+                if ($gpu) {
+                    $prompt .= "- GPU yang dipilih: **{$gpu->name}** (ID: {$gpu->id}, Power Draw: {$gpu->power_draw}W)\n";
+                }
+                $prompt .= "- Jumlah SSD: " . ($data['ssd_count'] ?? 1) . ", Jumlah HDD: " . ($data['hdd_count'] ?? 0) . ", Jumlah Fan: " . ($data['fans'] ?? 3) . "\n";
+
+                // Hasil kalkulasi yang sudah tampil di layar
+                $result = $activePageContext['result'] ?? null;
+                if ($result) {
+                    $prompt .= "\nHASIL KALKULASI PSU yang sudah tampil di layar user:\n";
+                    $prompt .= "- Total Konsumsi Daya: **" . round($result['total_draw'] ?? 0) . "W**\n";
+                    $prompt .= "- PSU yang Direkomendasikan: **" . ($result['recommended_watt'] ?? '-') . "W**\n";
+                    if (!empty($result['recommended_psu_name'])) {
+                        $prompt .= "- PSU yang Disarankan: **{$result['recommended_psu_name']}** ({$result['recommended_psu_watt']}W, Rp " . number_format($result['recommended_psu_price'] ?? 0, 0, ',', '.') . ")\n";
+                    }
+                    $prompt .= "\nPETUNJUK: Karena hasil sudah ada, langsung jawab dari data di atas tanpa perlu memanggil calculate_psu lagi, kecuali user meminta perhitungan ulang dengan konfigurasi berbeda.\n";
+                } else {
+                    $prompt .= "\nPETUNJUK: Jika user menanyakan berapa watt PSU yang dibutuhkan atau pertanyaan seputar kebutuhan daya, ";
+                    if ($cpu && $gpu) {
+                        $prompt .= "LANGSUNG panggil tool calculate_psu dengan cpu_id={$cpu->id}, gpu_id={$gpu->id}, ssd_count=" . ($data['ssd_count'] ?? 1) . ", hdd_count=" . ($data['hdd_count'] ?? 0) . ", fans=" . ($data['fans'] ?? 3) . ". JANGAN tanya CPU/GPU lagi karena sudah dipilih user.\n";
+                    } else {
+                        $prompt .= "tanyakan komponen mana yang belum dipilih (CPU atau GPU) jika belum tersedia.\n";
+                    }
+                }
+            }
+
+            elseif ($page === 'compatibility_checker') {
+                $cpu  = Cpu::find($data['cpu_id'] ?? null);
+                $gpu  = Gpu::find($data['gpu_id'] ?? null);
+                $mobo = \App\Models\Motherboard::find($data['motherboard_id'] ?? null);
+                $ram  = \App\Models\Ram::find($data['ram_id'] ?? null);
+                $psu  = Psu::find($data['psu_id'] ?? null);
+                $prompt .= "KONTEKS HALAMAN — User saat ini berada di halaman **Cek Kompatibilitas Komponen**.\n";
+                $prompt .= "Komponen yang sudah dipilih user di form:\n";
+                $prompt .= "- CPU: " . ($cpu ? "**{$cpu->name}** (ID: {$cpu->id})" : "*(belum dipilih)*") . "\n";
+                $prompt .= "- GPU: " . ($gpu ? "**{$gpu->name}** (ID: {$gpu->id})" : "*(belum dipilih)*") . "\n";
+                $prompt .= "- Motherboard: " . ($mobo ? "**{$mobo->name}** (ID: {$mobo->id})" : "*(belum dipilih)*") . "\n";
+                $prompt .= "- RAM: " . ($ram ? "**{$ram->name}** (ID: {$ram->id})" : "*(belum dipilih)*") . "\n";
+                $prompt .= "- PSU: " . ($psu ? "**{$psu->name}** (ID: {$psu->id})" : "*(belum dipilih)*") . "\n";
+
+                // Hasil pengecekan yang sudah tampil di layar
+                $result = $activePageContext['result'] ?? null;
+                if ($result) {
+                    $compatible = $result['compatible'] ?? false;
+                    $prompt .= "\nHASIL CEK KOMPATIBILITAS yang sudah tampil di layar user:\n";
+                    $prompt .= "- Status: **" . ($compatible ? '✅ KOMPATIBEL' : '❌ ADA MASALAH') . "**\n";
+                    if (!empty($result['checks'])) {
+                        foreach ($result['checks'] as $check) {
+                            $icon = ($check['passed'] ?? false) ? '✅' : '❌';
+                            $prompt .= "  {$icon} {$check['name']}: {$check['message']}\n";
+                        }
+                    }
+                    $prompt .= "\nPETUNJUK: Karena hasil sudah ada, langsung jawab berdasarkan data di atas. Jika user bertanya tentang detail masalah atau solusi, berikan penjelasan berdasarkan hasil check di atas.\n";
+                } else {
+                    $allFilled = $cpu && $gpu && $mobo && $ram && $psu;
+                    $prompt .= "\nPETUNJUK: Jika user bertanya soal kompatibilitas komponen yang sudah dipilih, ";
+                    if ($allFilled) {
+                        $prompt .= "LANGSUNG panggil tool check_compatibility dengan cpu_id={$cpu->id}, motherboard_id={$mobo->id}, ram_id={$ram->id}, gpu_id={$gpu->id}, psu_id={$psu->id}. JANGAN tanya komponen lagi karena sudah lengkap.\n";
+                    } else {
+                        $prompt .= "sampaikan komponen mana yang masih belum dipilih (lihat daftar di atas) dan minta user melengkapinya di form terlebih dahulu.\n";
+                    }
+                }
+            }
+
+            elseif ($page === 'fps_calculator') {
+                $cpu = Cpu::find($data['cpu_id'] ?? null);
+                $gpuId = $data['gpu_id'] ?? null;
+                $isIgpu = ($gpuId === 'igpu');
+                $gpu = $isIgpu ? null : Gpu::find($gpuId);
+                $ram = \App\Models\Ram::find($data['ram_id'] ?? null);
+                $prompt .= "KONTEKS HALAMAN — User saat ini berada di halaman **Estimasi FPS Gaming**.\n";
+                if ($cpu) {
+                    $prompt .= "- CPU yang dipilih: **{$cpu->name}** (ID: {$cpu->id})\n";
+                }
+                if ($isIgpu) {
+                    $prompt .= "- GPU yang dipilih: **Integrated Graphics** (iGPU bawaan CPU)\n";
+                } elseif ($gpu) {
+                    $prompt .= "- GPU yang dipilih: **{$gpu->name}** (ID: {$gpu->id})\n";
+                }
+                if ($ram) {
+                    $prompt .= "- RAM yang dipilih: **{$ram->name}** (ID: {$ram->id})\n";
+                }
+
+                // Hasil estimasi FPS yang sudah tampil di layar
+                $result = $activePageContext['result'] ?? null;
+                if ($result && is_array($result)) {
+                    $prompt .= "\nHASIL ESTIMASI FPS yang sudah tampil di layar user (" . count($result) . " game):\n";
+                    foreach ($result as $gameResult) {
+                        $prompt .= "- **{$gameResult['game_name']}** ({$gameResult['weight_class']}): ";
+                        $prompt .= "720p={$gameResult['fps']['720p']}fps, 1080p={$gameResult['fps']['1080p']}fps, 4K={$gameResult['fps']['4K']}fps\n";
+                    }
+                    $prompt .= "\nPETUNJUK: Karena hasil sudah ada, langsung jawab dari data FPS di atas. Jika user bertanya FPS game tertentu, cari dari tabel di atas dan jawab langsung tanpa memanggil tool lagi.\n";
+                } else {
+                    $prompt .= "\nPETUNJUK: Jika user menanyakan FPS untuk game tertentu, gunakan ID di atas. ";
+                    if ($cpu && ($gpu || $isIgpu)) {
+                        if (!$isIgpu) {
+                            $prompt .= "Untuk estimasi FPS, panggil tool get_fps_estimate dengan cpu_id={$cpu->id}, gpu_id={$gpu->id}, dan minta user menyebutkan nama game dan resolusi yang ingin dicek. Untuk mencari game_id, panggil tool search_game terlebih dahulu.\n";
+                        } else {
+                            $prompt .= "GPU yang digunakan adalah iGPU, sehingga estimasi FPS via tool mungkin tidak tersedia secara langsung. Jelaskan dengan jujur bahwa iGPU memiliki performa terbatas untuk gaming.\n";
+                        }
+                    } else {
+                        $prompt .= "Sampaikan bahwa CPU atau GPU belum dipilih lengkap di form.\n";
+                    }
+                }
+            }
+
+            elseif ($page === 'build_recommendation') {
+                $prompt .= "KONTEKS HALAMAN — User saat ini berada di halaman **Rekomendasi Rakitan PC**.\n";
+                if (!empty($data['budget'])) {
+                    $prompt .= "- Budget yang dimasukkan di form: **Rp " . number_format($data['budget'], 0, ',', '.') . "**\n";
+                }
+                if (!empty($data['resolution'])) {
+                    $prompt .= "- Resolusi target: **{$data['resolution']}**\n";
+                }
+                if (!empty($data['ai_prompt'])) {
+                    $prompt .= "- Prompt AI yang sedang diketik user: *\"{$data['ai_prompt']}\"*\n";
+                }
+
+                // Hasil rekomendasi yang sudah tampil di layar
+                $result = $activePageContext['result'] ?? null;
+                if ($result && !empty($result['components'])) {
+                    $prompt .= "\nHASIL REKOMENDASI RAKITAN yang sudah tampil di layar user:\n";
+                    foreach ($result['components'] as $type => $comp) {
+                        $prompt .= "- **" . strtoupper($type) . "**: {$comp['name']} (Rp " . number_format($comp['price'] ?? 0, 0, ',', '.') . ") [ID: {$comp['id']}]\n";
+                    }
+                    $prompt .= "- **Total**: Rp " . number_format($result['total_price'] ?? 0, 0, ',', '.') . "\n";
+                    $prompt .= "\nPETUNJUK: Karena hasil rakitan sudah ada, langsung jawab/ulas berdasarkan data di atas. Jika user ingin mengecek kompatibilitas atau PSU dari rakitan ini, gunakan ID komponen di atas untuk memanggil tool yang sesuai.\n";
+                }
+            }
         }
 
         return $prompt;

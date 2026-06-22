@@ -24,7 +24,35 @@ export default function PSUCalculator() {
     Promise.all([getComponents.cpus(), getComponents.gpus(), getComponents.ssds(), getComponents.hdds()])
       .then(([c, g, s, h]) => setLists({ cpus: c.data.data, gpus: g.data.data, ssds: s.data.data, hdds: h.data.data }))
       .finally(() => setFetching(false))
+
+    // Bersihkan context saat halaman ditinggalkan
+    return () => { localStorage.removeItem('active_page_context') }
   }, [])
+
+  // Sinkronisasi pilihan form ke localStorage agar Chat AI bisa membacanya
+  useEffect(() => {
+    if (form.cpu_id || form.gpu_id) {
+      localStorage.setItem('active_page_context', JSON.stringify({
+        page: 'psu_calculator',
+        data: {
+          cpu_id: form.cpu_id || null,
+          gpu_id: form.gpu_id || null,
+          fans: form.fans,
+          ssd_count: form.ssd_count,
+          hdd_count: form.hdd_count,
+        },
+        result: result ? {
+          recommended_watt: result.recommended_watt,
+          total_draw: result.breakdown?.total_draw,
+          recommended_psu_name: result.recommended_psu?.name,
+          recommended_psu_watt: result.recommended_psu?.watt,
+          recommended_psu_price: result.recommended_psu?.price,
+        } : null,
+      }))
+    } else {
+      localStorage.removeItem('active_page_context')
+    }
+  }, [form.cpu_id, form.gpu_id, form.fans, form.ssd_count, form.hdd_count, result])
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const setNum = (key) => (e) => setForm((f) => ({ ...f, [key]: Number(e.target.value) }))
