@@ -17,12 +17,14 @@ class ChatController extends Controller
             'message'           => 'required|string|max:500',
             'history'           => 'nullable|array',
             'internal_messages' => 'nullable|array',
+            'active_build'      => 'nullable|array',
         ]);
 
         $result = $this->service->chat(
             $request->input('message'),
             $request->input('history', []),
-            $request->input('internal_messages', [])
+            $request->input('internal_messages', []),
+            $request->input('active_build')
         );
 
         return response()->json($result);

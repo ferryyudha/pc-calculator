@@ -25,7 +25,7 @@ class ChatAssistantService
     ) {
     }
 
-    public function chat(string $userMessage, array $history = [], array $internalMessages = []): array
+    public function chat(string $userMessage, array $history = [], array $internalMessages = [], ?array $activeBuild = null): array
     {
         $apiKey = env('GROQ_API_KEY') ?: config('services.groq.key');
 
@@ -34,10 +34,10 @@ class ChatAssistantService
             $messages = $internalMessages;
             // Pastikan system prompt tetap di posisi pertama
             if (($messages[0]['role'] ?? '') !== 'system') {
-                array_unshift($messages, ['role' => 'system', 'content' => $this->getSystemPrompt()]);
+                array_unshift($messages, ['role' => 'system', 'content' => $this->getSystemPrompt($activeBuild)]);
             }
         } else {
-            $systemPrompt = $this->getSystemPrompt();
+            $systemPrompt = $this->getSystemPrompt($activeBuild);
             $messages = [
                 ['role' => 'system', 'content' => $systemPrompt],
             ];
@@ -141,11 +141,9 @@ class ChatAssistantService
     private function stripSystemMessage(array $messages): array
     {
         return array_values(array_filter($messages, fn($m) => ($m['role'] ?? '') !== 'system'));
-    }
-
-    private function getSystemPrompt(): string
+    }    private function getSystemPrompt(?array $activeBuild = null): string
     {
-        return <<<PROMPT
+        $prompt = <<<PROMPT
 Kamu adalah asisten AI untuk toko komputer "PC Calculator". Kamu membantu
 pelanggan memilih komponen PC, mengecek kompatibilitas, estimasi FPS game,
 dan kebutuhan PSU. Jawab dalam Bahasa Indonesia, ramah, dan ringkas.
@@ -210,7 +208,7 @@ PENTING:
   2. Panggil tool check_compatibility dengan id-id tersebut.
   3. DILARANG mengarang jawaban kompatibilitas tanpa memanggil tool.
 - KALKULATOR PSU (calculate_psu): Jika user menanyakan apakah asisten bisa menghitung kebutuhan watt PSU, atau meminta menghitung kebutuhan watt PSU untuk komponen tertentu:
-  1. Jika user tidak menyebutkan CPU/GPU spesifik, jelaskan bahwa Anda bisa membantu menghitungnya, lalu minta user untuk menyebutkan model CPU dan GPU yang ingin mereka gunakan.
+  1. Jika user tidak menyebutkan CPU/GPU spesifik, jelaskan bahwa Anda bisa membantu menghitungnya, lalu minta user untuk menyebutkan model CPU and GPU yang ingin mereka gunakan.
   2. Jika user menyebutkan CPU dan GPU spesifik (atau jika ID CPU dan GPU sudah ditemukan dari history/TOOL_RESULT sebelumnya), panggil tool calculate_psu untuk mendapatkan kalkulasi watt PSU dan rekomendasi unit PSU yang cocok. DILARANG mengarang watt PSU secara manual tanpa memanggil tool.
 - GANTI KOMPONEN (KHUSUS): Aturan ini HANYA berlaku jika user secara eksplisit meminta mengganti/mencari komponen alternatif (contoh: "ganti RAM-nya jadi Klev", "prosesornya mau Ryzen 5", "PSU-nya ganti", "RAM-nya stok gak ada mau ganti", "motherboard ganti B550"). TIDAK berlaku untuk rekomendasi rakitan lengkap.
   Jika kondisi ini terpenuhi, gunakan tool search_cpu / search_gpu / search_ram / search_psu / search_motherboard / search_ssd dengan keyword komponen yang diminta, lalu:
@@ -237,7 +235,7 @@ PENTING:
 - FILTER KAPASITAS NUMERIK: Jika user menyebutkan kapasitas secara eksplisit, SELALU gunakan parameter numerik yang tersedia, BUKAN memasukkan angka ke dalam "keyword":
   * GPU: gunakan "min_vram" (contoh: user minta "GPU 16GB" → min_vram: 16, bukan keyword: "16GB")
   * RAM: gunakan "min_capacity" (contoh: user minta "RAM 32GB" → min_capacity: 32, bukan keyword: "32GB")
-  * SSD: gunakan "min_capacity" (contoh: user minta "SSD 1TB" atau "SSD 1000GB" → min_capacity: 1000, bukan keyword: "1TB")
+  * SSD: gunakan "min_capacity" (contoh: user minta "SSD 1TB" or "SSD 1000GB" → min_capacity: 1000, bukan keyword: "1TB")
   Memasukkan angka kapasitas ke "keyword" rentan gagal karena pencarian nama produk bersifat exact substring match dan sensitif terhadap perbedaan format (spasi, singkatan G/GB/TB, dst).
 - Jangan asal jawab harga atau spek tanpa tool jika pertanyaan menyangkut data toko.
 - Kalau pertanyaan umum (misal "apa itu DDR5?"), boleh langsung final_answer tanpa tool.
@@ -250,6 +248,19 @@ PENTING:
   3. Gunakan **bold** pada label komponen, nama model, dan harga.
   4. Berikan baris kosong di antara paragraf pembuka, daftar komponen, dan bagian penutup.
 PROMPT;
+
+        if ($activeBuild && isset($activeBuild['build'])) {
+            $prompt .= "\n\nINFORMASI PENTING: Saat ini, user sedang melihat PC rakitan berikut di layar mereka:\n";
+            foreach ($activeBuild['build'] as $type => $comp) {
+                $prompt .= "- **" . strtoupper($type) . "**: " . ($comp['name'] ?? '-') . " (Harga: Rp " . number_format($comp['price'] ?? 0, 0, ',', '.') . ") [ID: " . ($comp['id'] ?? '') . "]\n";
+            }
+            $prompt .= "- **Total Harga**: Rp " . number_format($activeBuild['total_price'] ?? 0, 0, ',', '.') . "\n";
+            $prompt .= "\nCatatan untuk Asisten:\n";
+            $prompt .= "1. Jika user bertanya tentang kompatibilitas rakitan ini, atau ingin mengecek watt PSU untuk rakitan ini, atau ingin mengganti salah satu komponen dari rakitan ini, gunakan ID komponen di atas untuk memanggil tool check_compatibility, calculate_psu, atau tool pencarian.\n";
+            $prompt .= "2. Akui spesifikasi rakitan di atas jika user merujuk pada 'rakitan ini', 'PC saya', atau 'rekomendasi tadi'.\n";
+        }
+
+        return $prompt;
     }
 
     private function executeTool(string $tool, array $params): mixed

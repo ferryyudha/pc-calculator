@@ -54,6 +54,14 @@ export default function BuildRecommendation() {
       })
   }, [])
 
+  useEffect(() => {
+    if (result) {
+      localStorage.setItem('active_build', JSON.stringify(result))
+    } else {
+      localStorage.removeItem('active_build')
+    }
+  }, [result])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true); setResult(null); setError(null); setDetectedInfo(null)
