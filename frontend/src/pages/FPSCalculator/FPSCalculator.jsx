@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { getComponents, postFpsEstimateAll } from '../../services/api'
-import { RESOLUTIONS, RESOLUTION_LABELS } from '../../utils/helpers'
+// No imports needed from helpers since they are not used here
 import SearchableSelect from '../../components/SearchableSelect/SearchableSelect'
 
 // ─── GPU Score (RTX 4070 = 150 sebagai baseline referensi) ───────────────────
@@ -187,6 +187,47 @@ const getFpsBadgeClass = (fps) => {
   if (fps >= 60)  return 'bg-blue-600 text-white'
   if (fps >= 30)  return 'bg-amber-600 text-white'
   return 'bg-rose-600 text-white'
+}
+
+// Helper to check if CPU has integrated graphics
+const hasIntegratedGpu = (cpuName) => {
+  if (!cpuName) return false
+  const name = cpuName.toLowerCase()
+  
+  // Explicitly check F-series or KF-series which have no iGPU
+  if (name.includes('f ') || name.includes('kf ') || name.includes('-f') || name.includes('-kf') || name.endsWith('f') || name.endsWith('kf')) {
+    return false
+  }
+  // AMD F-series
+  if (name.includes('7500f') || name.includes('8700f') || name.includes('8400f')) {
+    return false
+  }
+  return true
+}
+
+// Helper to get Game Weight based on weight class
+const getGameWeight = (weightClass) => {
+  switch (weightClass) {
+    case 'light': return 0.8
+    case 'medium': return 1.2
+    case 'heavy': return 1.6
+    case 'extreme': return 2.2
+    default: return 1.2
+  }
+}
+
+// Helper untuk mendapatkan URL cover art game dari folder lokal (public/images/games)
+const getGameCoverUrl = (slug) => {
+  const knownSlugs = [
+    'valorant', 'cs2', 'gta-v', 'fortnite', 'cyberpunk-2077',
+    'dota-2', 'league-of-legends', 'apex-legends', 'pubg-battlegrounds',
+    'genshin-impact', 'minecraft', 'black-myth-wukong',
+    'red-dead-redemption-2', 'elden-ring', 'hogwarts-legacy',
+  ]
+  if (knownSlugs.includes(slug)) {
+    return `/images/games/${slug}.jpg`
+  }
+  return 'https://placehold.co/120x176/1e293b/64748b?text=Game'
 }
 
 
