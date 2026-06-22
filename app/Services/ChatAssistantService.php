@@ -247,6 +247,10 @@ PENTING:
   2. Berikan baris baru untuk setiap komponen. Dilarang menuliskan daftar dalam satu paragraf panjang.
   3. Gunakan **bold** pada label komponen, nama model, dan harga.
   4. Berikan baris kosong di antara paragraf pembuka, daftar komponen, dan bagian penutup.
+- KONTEKS RAKITAN AKTIF DI LAYAR:
+  * Jika user menanyakan apakah Anda bisa melihat rakitan/rekomendasi yang ada di layar mereka (contoh: "bisa lihat rekomendasinya?", "lihat PC saya", "baca spesifikasi tadi"), periksa bagian "INFORMASI PENTING" di akhir prompt ini.
+  * Jika bagian "INFORMASI PENTING" tersebut ADA, gunakan data rakitan di sana untuk menjawab secara langsung. DILARANG memanggil tool recommend_build.
+  * Jika bagian "INFORMASI PENTING" tersebut TIDAK ADA, sampaikan dengan sopan bahwa Anda belum bisa melihat rakitan karena user belum membuat rekomendasi PC di layar. Minta user untuk membuat rekomendasi terlebih dahulu melalui Prompt Builder/form di layar.
 PROMPT;
 
         if ($activeBuild && isset($activeBuild['build'])) {
@@ -258,6 +262,7 @@ PROMPT;
             $prompt .= "\nCatatan untuk Asisten:\n";
             $prompt .= "1. Jika user bertanya tentang kompatibilitas rakitan ini, atau ingin mengecek watt PSU untuk rakitan ini, atau ingin mengganti salah satu komponen dari rakitan ini, gunakan ID komponen di atas untuk memanggil tool check_compatibility, calculate_psu, atau tool pencarian.\n";
             $prompt .= "2. Akui spesifikasi rakitan di atas jika user merujuk pada 'rakitan ini', 'PC saya', atau 'rekomendasi tadi'.\n";
+            $prompt .= "3. Jika user meminta untuk 'melihat', 'membaca', atau menanyakan apakah Anda bisa melihat rakitan yang sedang mereka buat/tampilkan di layar (contoh: 'bisa lihat rekomendasinya?', 'lihat PC saya', 'baca rakitan saya'), JANGAN panggil tool recommend_build. Cukup jawab secara langsung dengan menyebutkan detail komponen rakitan aktif di atas.\n";
         }
 
         return $prompt;
