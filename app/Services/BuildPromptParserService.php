@@ -107,7 +107,7 @@ PROMPT;
         return [
             'budget_min' => null,
             'budget_max' => null,
-            'resolution' => '1080p',
+            'resolution' => null,
             'game_keywords' => [],
             'cpu_preference' => null,
             'gpu_preference' => null,

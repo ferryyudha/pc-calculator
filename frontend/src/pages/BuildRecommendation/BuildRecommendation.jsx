@@ -21,7 +21,7 @@ const BUDGET_RANGES = ['Rp 5-10 Juta', 'Rp 10-15 Juta', 'Rp 15-20 Juta', 'Rp 20-
 
 export default function BuildRecommendation() {
   const [games, setGames]       = useState([])
-  const [form, setForm]         = useState({ budget: '', game_id: '', resolution: '1080p' })
+  const [form, setForm]         = useState({ budget: '', game_id: '', resolution: '' })
   const [aiPrompt, setAiPrompt] = useState('')
   const [result, setResult]     = useState(null)
   const [error, setError]       = useState(null)
@@ -35,10 +35,6 @@ export default function BuildRecommendation() {
     getComponents.games()
       .then((r) => {
         setGames(r.data.data)
-        // Select first game by default to avoid empty selection issues
-        if (r.data.data.length > 0) {
-          setForm(f => ({ ...f, game_id: r.data.data[0].id }))
-        }
       })
       .finally(() => setFetching(false))
 
@@ -66,7 +62,12 @@ export default function BuildRecommendation() {
     e.preventDefault()
     setLoading(true); setResult(null); setError(null); setDetectedInfo(null)
     try {
-      const res = await postRecommendBuild({ ...form, budget: Number(form.budget) })
+      const payload = {
+        budget: Number(form.budget),
+        game_id: form.game_id ? Number(form.game_id) : null,
+        resolution: form.resolution || null
+      }
+      const res = await postRecommendBuild(payload)
       setResult(res.data.data)
     } catch (err) {
       setError(err)
@@ -158,7 +159,7 @@ export default function BuildRecommendation() {
     return aiPrompt.toLowerCase().includes(value.toLowerCase());
   }
 
-  const allFilled = form.budget && form.game_id && form.resolution
+  const allFilled = !!form.budget
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-12">
@@ -427,15 +428,15 @@ export default function BuildRecommendation() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             {/* Game */}
             <div>
-              <label className="block text-sm font-semibold text-gray-300 mb-1.5">Game Target</label>
+              <label className="block text-sm font-semibold text-gray-300 mb-1.5">Game Target (Opsional)</label>
               <select
                 value={form.game_id}
                 onChange={(e) => setForm((f) => ({ ...f, game_id: e.target.value }))}
                 className="field select-custom"
-                required
               >
+                <option value="">Tanpa Game Target (Rekomendasi Umum)</option>
                 {fetching ? (
-                  <option>Memuat game...</option>
+                  <option disabled>Memuat game...</option>
                 ) : (
                   games.map((g) => (
                     <option key={g.id} value={g.id}>
@@ -448,11 +449,11 @@ export default function BuildRecommendation() {
 
             {/* Resolution */}
             <div>
-              <label className="block text-sm font-semibold text-gray-300 mb-1.5">Resolusi Target</label>
+              <label className="block text-sm font-semibold text-gray-300 mb-1.5">Resolusi Target (Opsional)</label>
               <div className="grid grid-cols-4 gap-2">
                 {RESOLUTIONS.map((r) => (
                   <button key={r} type="button"
-                    onClick={() => setForm((f) => ({ ...f, resolution: r }))}
+                    onClick={() => setForm((f) => ({ ...f, resolution: f.resolution === r ? '' : r }))}
                     className={`py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
                       form.resolution === r
                         ? 'bg-gradient-to-r from-primary to-accent text-white shadow-glow-primary'

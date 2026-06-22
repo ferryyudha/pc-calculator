@@ -21,22 +21,30 @@ class BuildController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'budget'     => 'required|integer|min:1000000',
-            'game_id'    => 'required|integer|exists:games,id',
-            'resolution' => 'required|in:720p,1080p,1440p,4K',
+            'game_id'    => 'nullable|integer|exists:games,id',
+            'resolution' => 'nullable|in:720p,1080p,1440p,4K',
         ]);
 
         if ($validator->fails()) {
             return $this->error('VALIDATION_ERROR', 'Input request tidak valid', $validator->errors());
         }
 
-        $game   = Game::findOrFail($request->game_id);
+        $game   = $request->game_id ? Game::find($request->game_id) : null;
         $result = $this->service->recommend($request->budget, $game, $request->resolution);
 
         if (!$result) {
+            $targetDesc = "";
+            if ($game && $request->resolution) {
+                $targetDesc = " untuk target {$request->resolution} gaming pada game {$game->name}";
+            } elseif ($game) {
+                $targetDesc = " untuk game {$game->name}";
+            } elseif ($request->resolution) {
+                $targetDesc = " untuk target resolusi {$request->resolution}";
+            }
             return $this->error(
                 'BUDGET_INSUFFICIENT',
                 "Budget Rp " . number_format($request->budget, 0, ',', '.') .
-                " tidak cukup untuk target {$request->resolution} gaming pada game {$game->name}",
+                " tidak cukup" . $targetDesc,
                 null,
                 422
             );
@@ -68,7 +76,7 @@ class BuildController extends Controller
             $budget = 10000000;
         }
 
-        $resolution = $parsedPrompt['resolution'] ?? '1080p';
+        $resolution = $parsedPrompt['resolution'] ?? null;
 
         $game = null;
         if (!empty($parsedPrompt['game_keywords'])) {
@@ -76,10 +84,6 @@ class BuildController extends Controller
                 $game = Game::where('name', 'like', '%' . $keyword . '%')->first();
                 if ($game) break;
             }
-        }
-
-        if (!$game) {
-            $game = Game::where('weight_class', 'medium')->first() ?: Game::first();
         }
 
         $recommendation = $this->service->recommend(
@@ -93,10 +97,18 @@ class BuildController extends Controller
         );
 
         if (!$recommendation) {
+            $targetDesc = "";
+            if ($game && $resolution) {
+                $targetDesc = " untuk target {$resolution} gaming pada game {$game->name}";
+            } elseif ($game) {
+                $targetDesc = " untuk game {$game->name}";
+            } elseif ($resolution) {
+                $targetDesc = " untuk target resolusi {$resolution}";
+            }
             return $this->error(
                 'BUDGET_INSUFFICIENT',
                 "Budget Rp " . number_format($budget, 0, ',', '.') .
-                " tidak cukup untuk target {$resolution} gaming pada game {$game->name}.",
+                " tidak cukup" . $targetDesc . ".",
                 null,
                 422
             );

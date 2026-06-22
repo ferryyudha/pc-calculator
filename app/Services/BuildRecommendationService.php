@@ -42,8 +42,8 @@ class BuildRecommendationService
 
     public function recommend(
         int $budget,
-        Game $game,
-        string $resolution,
+        ?Game $game = null,
+        ?string $resolution = null,
         ?string $cpuPreference = null,
         ?string $gpuPreference = null,
         ?int $ramCapacity = null,
@@ -84,15 +84,21 @@ class BuildRecommendationService
             $gpuCandidates = $gpuQuery->orderBy('price', 'desc')->limit(15)->get();
 
             if ($gpuCandidates->isEmpty()) {
-                $gpuCandidates = Gpu::where('vram', '>=', $game->min_vram)
-                    ->where('price', '<=', (int) ($budget * self::GPU_BUDGET_RATIO))
+                $gpuQuery = Gpu::query();
+                if ($game) {
+                    $gpuQuery->where('vram', '>=', $game->min_vram);
+                }
+                $gpuCandidates = $gpuQuery->where('price', '<=', (int) ($budget * self::GPU_BUDGET_RATIO))
                     ->orderBy('price', 'desc')
                     ->limit(15)
                     ->get();
             }
         } else {
-            $gpuCandidates = Gpu::where('vram', '>=', $game->min_vram)
-                ->where('price', '<=', (int) ($budget * self::GPU_BUDGET_RATIO))
+            $gpuQuery = Gpu::query();
+            if ($game) {
+                $gpuQuery->where('vram', '>=', $game->min_vram);
+            }
+            $gpuCandidates = $gpuQuery->where('price', '<=', (int) ($budget * self::GPU_BUDGET_RATIO))
                 ->orderBy('price', 'desc')
                 ->limit(15)
                 ->get();
@@ -277,12 +283,12 @@ class BuildRecommendationService
                     }
 
                     // Match found within budget! Record recommendation and return immediately
-                    $fpsResult = $this->fpsService->estimate($cpu->id, $gpu->id, $game->id, $resolution);
+                    $fpsResult = ($game && $resolution) ? $this->fpsService->estimate($cpu->id, $gpu->id, $game->id, $resolution) : null;
 
                     try {
                         BuildRecommendation::create([
                             'budget' => $budget,
-                            'game_id' => $game->id,
+                            'game_id' => $game?->id,
                             'resolution' => $resolution,
                             'cpu_id' => $cpu->id,
                             'gpu_id' => $gpu->id,
@@ -339,12 +345,12 @@ class BuildRecommendationService
             $psu = $bestBuild['psu'];
             $total = $bestBuild['total'];
 
-            $fpsResult = $this->fpsService->estimate($cpu->id, $gpu->id, $game->id, $resolution);
+            $fpsResult = ($game && $resolution) ? $this->fpsService->estimate($cpu->id, $gpu->id, $game->id, $resolution) : null;
 
             try {
                 BuildRecommendation::create([
                     'budget' => $budget,
-                    'game_id' => $game->id,
+                    'game_id' => $game?->id,
                     'resolution' => $resolution,
                     'cpu_id' => $cpu->id,
                     'gpu_id' => $gpu->id,

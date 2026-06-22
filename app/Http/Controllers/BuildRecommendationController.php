@@ -41,7 +41,7 @@ class BuildRecommendationController extends Controller
             $budget = 10000000;
         }
 
-        $resolution = $parsedPrompt['resolution'] ?? '1080p';
+        $resolution = $parsedPrompt['resolution'] ?? null;
 
         // Fuzzy match game using game_keywords
         $game = null;
@@ -52,19 +52,22 @@ class BuildRecommendationController extends Controller
             }
         }
 
-        // Fallback game if no keywords matched
-        if (!$game) {
-            $game = Game::where('weight_class', 'medium')->first() ?: Game::first();
-        }
-
         // Run the recommendation service
         $recommendation = $this->recommendationService->recommend($budget, $game, $resolution);
 
         $result = $recommendation;
         if (!$recommendation) {
+            $targetDesc = "";
+            if ($game && $resolution) {
+                $targetDesc = " untuk target {$resolution} gaming pada game {$game->name}";
+            } elseif ($game) {
+                $targetDesc = " untuk game {$game->name}";
+            } elseif ($resolution) {
+                $targetDesc = " untuk target resolusi {$resolution}";
+            }
             $result = [
                 'error' => "Budget Rp " . number_format($budget, 0, ',', '.') . 
-                           " tidak cukup untuk target {$resolution} gaming pada game {$game->name}. Silakan naikkan budget Anda.",
+                           " tidak cukup" . $targetDesc . ". Silakan naikkan budget Anda.",
             ];
         }
 
@@ -109,21 +112,29 @@ class BuildRecommendationController extends Controller
     {
         $request->validate([
             'budget'     => 'required|integer|min:1000000',
-            'game_id'    => 'required|integer|exists:games,id',
-            'resolution' => 'required|in:720p,1080p,1440p,4K',
+            'game_id'    => 'nullable|integer|exists:games,id',
+            'resolution' => 'nullable|in:720p,1080p,1440p,4K',
         ]);
 
         $budget = (int) $request->input('budget');
-        $game = Game::findOrFail($request->input('game_id'));
+        $game = $request->input('game_id') ? Game::find($request->input('game_id')) : null;
         $resolution = $request->input('resolution');
 
         $recommendation = $this->recommendationService->recommend($budget, $game, $resolution);
 
         $result = $recommendation;
         if (!$recommendation) {
+            $targetDesc = "";
+            if ($game && $resolution) {
+                $targetDesc = " untuk target {$resolution} gaming pada game {$game->name}";
+            } elseif ($game) {
+                $targetDesc = " untuk game {$game->name}";
+            } elseif ($resolution) {
+                $targetDesc = " untuk target resolusi {$resolution}";
+            }
             $result = [
                 'error' => "Budget Rp " . number_format($budget, 0, ',', '.') . 
-                           " tidak cukup untuk target {$resolution} gaming pada game {$game->name}.",
+                           " tidak cukup" . $targetDesc . ".",
             ];
         }
 
