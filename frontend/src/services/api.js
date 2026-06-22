@@ -40,6 +40,7 @@ export const postPsuCalculate = (data) => api.post('/psu-calculate', data)
 export const postRecommendBuild = (data) => api.post('/recommend-build', data)
 export const postRecommendBuildAi = (data) => api.post('/recommend-build/ai-prompt', data)
 export const postRecommendBuildTier = (tier) => api.post(`/recommend-build/tier/${tier}`)
+export const getPopularTags = () => api.get('/recommend-build/popular-tags')
 
 // Monitoring PC Endpoints
 export const getDevices = () => api.get('/devices')

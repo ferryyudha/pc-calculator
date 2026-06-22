@@ -25,7 +25,9 @@ export default function BuildCard({ data }) {
         <div>
           <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Build yang Direkomendasikan</p>
           <p className="text-2xl font-bold text-white">{formatRupiah(total_price)}</p>
-          <p className="text-sm text-success mt-0.5">Sisa budget: {formatRupiah(remaining_budget)}</p>
+          <p className={`text-sm mt-0.5 ${remaining_budget >= 0 ? 'text-success' : 'text-red-500 font-semibold'}`}>
+            {remaining_budget >= 0 ? 'Sisa budget' : 'Over budget'}: {formatRupiah(remaining_budget)}
+          </p>
         </div>
         {estimated_fps && (
           <div className="text-right">
