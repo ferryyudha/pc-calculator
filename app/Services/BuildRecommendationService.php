@@ -228,6 +228,54 @@ class BuildRecommendationService
                 $total = $cpu->price + $gpu->price + $mobo->price + $ram->price + $psu->price + $ssd->price;
 
                 if ($total <= $budget) {
+                    // Optional upgrades if there is remaining budget
+                    $remaining = $budget - $total;
+                    if ($remaining > 0) {
+                        // 1. Upgrade RAM
+                        $betterRam = Ram::where('ddr_version', $mobo->ram_type)
+                            ->where('price', '<=', $ram->price + $remaining)
+                            ->orderBy('price', 'desc')
+                            ->first();
+                        if ($betterRam && $betterRam->price > $ram->price) {
+                            $remaining -= ($betterRam->price - $ram->price);
+                            $total += ($betterRam->price - $ram->price);
+                            $ram = $betterRam;
+                        }
+
+                        // 2. Upgrade SSD
+                        $betterSsd = Ssd::where('price', '<=', $ssd->price + $remaining)
+                            ->orderBy('price', 'desc')
+                            ->first();
+                        if ($betterSsd && $betterSsd->price > $ssd->price) {
+                            $remaining -= ($betterSsd->price - $ssd->price);
+                            $total += ($betterSsd->price - $ssd->price);
+                            $ssd = $betterSsd;
+                        }
+
+                        // 3. Upgrade Motherboard
+                        $betterMobo = Motherboard::where('socket', $cpu->socket)
+                            ->where('ram_type', $mobo->ram_type)
+                            ->where('price', '<=', $mobo->price + $remaining)
+                            ->orderBy('price', 'desc')
+                            ->first();
+                        if ($betterMobo && $betterMobo->price > $mobo->price) {
+                            $remaining -= ($betterMobo->price - $mobo->price);
+                            $total += ($betterMobo->price - $mobo->price);
+                            $mobo = $betterMobo;
+                        }
+
+                        // 4. Upgrade PSU
+                        $betterPsu = Psu::where('watt', '>=', $psuNeeded)
+                            ->where('price', '<=', $psu->price + $remaining)
+                            ->orderBy('price', 'desc')
+                            ->first();
+                        if ($betterPsu && $betterPsu->price > $psu->price) {
+                            $remaining -= ($betterPsu->price - $psu->price);
+                            $total += ($betterPsu->price - $psu->price);
+                            $psu = $betterPsu;
+                        }
+                    }
+
                     // Match found within budget! Record recommendation and return immediately
                     $fpsResult = $this->fpsService->estimate($cpu->id, $gpu->id, $game->id, $resolution);
 

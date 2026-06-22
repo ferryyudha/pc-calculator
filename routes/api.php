@@ -41,7 +41,4 @@ use App\Http\Controllers\Api\ChatController;
 Route::post('/chat', [ChatController::class, 'send']);
 Route::post('/log-error', [ChatController::class, 'logFrontendError']);
 
-Route::get('/debug-service-file', function() {
-    return file_get_contents(app_path('Services/BuildRecommendationService.php'));
-});
 
