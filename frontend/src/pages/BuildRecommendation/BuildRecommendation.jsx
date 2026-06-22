@@ -187,10 +187,10 @@ export default function BuildRecommendation() {
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               disabled={aiLoading}
-              className="w-full bg-surface-950/60 border border-white/10 hover:border-white/20 focus:border-primary/50 text-white placeholder-gray-500 rounded-2xl py-4.5 pl-5 pr-44 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all duration-300 backdrop-blur-sm"
+              className="w-full bg-surface-900/90 border border-white/10 hover:border-white/20 focus:border-primary/50 text-white placeholder-gray-500 rounded-2xl py-4 pl-5 pr-48 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all duration-300 backdrop-blur-sm"
             />
             {/* BUILD WITH AI Button inside the search bar */}
-            <div className="absolute right-2 top-2 bottom-2">
+            <div className="absolute right-1.5 top-1.5 bottom-1.5">
               <button
                 type="submit"
                 disabled={aiLoading || !aiPrompt.trim()}
