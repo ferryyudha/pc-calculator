@@ -70,7 +70,7 @@ export default function ChatWidget() {
           detail:  err?.code || null,
           url:     window.location.href,
         })
-      } catch (_) {
+      } catch {
         // Abaikan jika log juga gagal (server offline, dll)
       }
     } finally {

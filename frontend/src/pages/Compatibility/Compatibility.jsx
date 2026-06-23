@@ -47,7 +47,7 @@ export default function Compatibility() {
     } else {
       localStorage.removeItem('active_page_context')
     }
-  }, [form.cpu_id, form.gpu_id, form.motherboard_id, form.ram_id, form.psu_id, result])
+  }, [form, result])
 
   const set = (key) => (val) => setForm((f) => ({ ...f, [key]: val }))
 

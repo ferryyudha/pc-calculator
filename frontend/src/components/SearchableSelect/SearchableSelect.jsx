@@ -19,17 +19,12 @@ export default function SearchableSelect({
     function handleClickOutside(event) {
       if (containerRef.current && !containerRef.current.contains(event.target)) {
         setIsOpen(false)
+        setSearch('')
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  useEffect(() => {
-    if (!isOpen) {
-      setSearch('')
-    }
-  }, [isOpen])
 
   const allOptions = useMemo(() => {
     const list = [...options]
@@ -66,7 +61,12 @@ export default function SearchableSelect({
         id={id}
         type="button"
         disabled={loading}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (isOpen) {
+            setSearch('')
+          }
+          setIsOpen(!isOpen)
+        }}
         className={`w-full px-4 py-3 rounded-xl bg-surface-700/80 border border-white/8 text-sm flex justify-between items-center text-left transition-all duration-300 focus:outline-none focus:border-primary focus:ring-4 focus:ring-primary/25 ${
           selectedOption ? 'text-white' : 'text-gray-400'
         }`}
@@ -124,6 +124,7 @@ export default function SearchableSelect({
                   onClick={() => {
                     onChange(o.id)
                     setIsOpen(false)
+                    setSearch('')
                   }}
                   className={`w-full px-4 py-2.5 text-xs text-left transition-colors block ${
                     o.isSpecial 

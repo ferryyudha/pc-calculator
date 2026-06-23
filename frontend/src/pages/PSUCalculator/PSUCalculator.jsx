@@ -54,7 +54,6 @@ export default function PSUCalculator() {
     }
   }, [form.cpu_id, form.gpu_id, form.fans, form.ssd_count, form.hdd_count, result])
 
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
   const setNum = (key) => (e) => setForm((f) => ({ ...f, [key]: Number(e.target.value) }))
 
   const toggleId = (key, id) => {

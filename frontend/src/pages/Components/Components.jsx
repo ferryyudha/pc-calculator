@@ -35,11 +35,11 @@ export default function Components() {
 
   useEffect(() => {
     if (data[active]) return
-    setLoading(true)
+    setTimeout(() => setLoading(true), 0)
     getComponents[active]?.()
       .then((r) => setData((d) => ({ ...d, [active]: r.data.data })))
       .finally(() => setLoading(false))
-  }, [active])
+  }, [active, data])
 
   const rows = data[active] || []
   const cols = COLUMNS[active] || []
@@ -88,7 +88,7 @@ export default function Components() {
               <tbody>
                 {rows.map((row, i) => (
                   <tr key={row.id} className={`border-b border-white/5 hover:bg-white/2 transition-colors ${i % 2 === 0 ? '' : 'bg-white/1'}`}>
-                    {cols.map(([label, field, suffix]) => (
+                    {cols.map(([, field, suffix]) => (
                       <td key={field} className="px-4 py-3 text-gray-300">
                         <CellValue value={row[field]} suffix={suffix}/>
                       </td>
